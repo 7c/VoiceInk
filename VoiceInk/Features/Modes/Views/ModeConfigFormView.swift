@@ -70,6 +70,9 @@ struct ModeConfigFormView: View {
             footer
         }
         .onAppear {
+            draft.isAIEnhancementEnabled = false
+            draft.isRealtimeTranscriptionEnabled = false
+            draft.outputMode = .paste
             applyVoiceInkRefineRulesIfNeeded()
             applyOutputRules()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -140,7 +143,7 @@ struct ModeConfigFormView: View {
                 cleanURL: modeManager.cleanURL
             )
             transcriptionSection
-            aiEnhancementSection
+            Section("Offline edition") { Text("AI enhancement and command execution are unavailable.").foregroundStyle(.secondary) }
             advancedSection
         }
         .formStyle(.grouped)
@@ -301,10 +304,10 @@ struct ModeConfigFormView: View {
                     NativeAppleLanguageAssetControl(
                         localeIdentifier: effectiveLanguage(for: modelInfo),
                         isVisible: true,
-                        startsDownloadAutomatically: true
+                        startsDownloadAutomatically: false
                     )
                     .layoutPriority(1)
-                    .frame(width: 28, height: 24)
+
                 }
 
                 Picker("", selection: languageBinding) {

@@ -120,6 +120,9 @@ class TranscriptionPipeline {
                     context: transcriptionConfiguration.requestContext.withVocabulary(transcriptionVocabulary)
                 )
             }
+            // Match the original recognized command before fillers, vocabulary, or
+            // replacement rules can change its spoken name. Expand only on paste.
+            let promptSnippet = assistant.isFollowUp ? nil : PromptSnippetStore.shared.expansion(for: text)
             let vocabulary = vocabularyPreparation.finish()
             text = TranscriptionOutputFilter.filter(text, language: transcriptionConfiguration.language)
             let transcriptionDuration = Date().timeIntervalSince(transcriptionStart)
@@ -156,6 +159,9 @@ class TranscriptionPipeline {
             }
 
             text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+            if resolvedOutputConfiguration.outputMode == .paste, let promptSnippet {
+                text = promptSnippet
+            }
             let cleanedText = text
 
             let actualDuration = await AudioFileMetadata.duration(for: audioURL)

@@ -31,7 +31,7 @@ class NativeAppleTranscriptionService: TranscriptionService {
             case .invalidModel:
                 return String(localized: "Invalid model type provided for Native Apple transcription.")
             case .assetDownloadRequired(let displayName):
-                return String(format: String(localized: "Download required for %@."), displayName)
+                return "Apple Speech language \(displayName) is not installed. Downloads are disabled in the offline edition."
             case .assetReservationFailed(let displayName):
                 return String(
                     format: String(
@@ -78,7 +78,7 @@ class NativeAppleTranscriptionService: TranscriptionService {
                 logger.error(
                     "Transcription failed: Locale '\(requestedIdentifier, privacy: .public)' is not supported by SpeechTranscriber."
                 )
-                throw ServiceError.localeNotSupported
+                throw ServiceError.assetDownloadRequired(NativeAppleSpeechAssetManager.languageDisplayName(for: selectedLanguage))
             }
 
             guard assetContext.isInstalled else {

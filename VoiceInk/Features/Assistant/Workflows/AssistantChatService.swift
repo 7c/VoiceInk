@@ -1,5 +1,4 @@
 import Foundation
-import LLMkit
 import SwiftData
 
 @MainActor
@@ -29,31 +28,7 @@ final class AssistantChatService {
         systemPrompt: String?,
         messages: [AssistantDisplayMessage]
     ) async throws -> Reply {
-        let chatMessages = messages.map { message in
-            switch message.role {
-            case .user:
-                return ChatMessage.user(message.content)
-            case .assistant:
-                return ChatMessage.assistant(message.content)
-            }
-        }
-
-        let startTime = Date()
-        let text = try await aiService.completeChat(
-            provider: provider,
-            modelName: modelName,
-            messages: chatMessages,
-            systemPrompt: systemPrompt,
-            timeout: requestTimeout,
-            retryOnTimeout: EnhancementRequestSettings.retryOnTimeout
-        )
-
-        return Reply(
-            text: text,
-            duration: Date().timeIntervalSince(startTime),
-            systemPrompt: systemPrompt,
-            requestLog: Self.requestLog(from: messages)
-        )
+        throw OfflineMode.unavailable
     }
 
     func applyAssistantTurn(

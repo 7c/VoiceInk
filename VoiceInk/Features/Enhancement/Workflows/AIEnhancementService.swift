@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import LLMkit
 import SwiftData
 import os
 
@@ -75,24 +74,7 @@ class AIEnhancementService: ObservableObject {
     }
 
     func isConfigured(for configuration: EnhancementRuntimeConfiguration) -> Bool {
-        guard let provider = configuration.provider else { return false }
-
-        if provider == .voiceInkRefine {
-            return aiService.voiceInkRefineService.isAvailableInModes
-        }
-
-        guard configuration.prompt != nil else { return false }
-
-        if provider == .localCLI || provider == .ollama {
-            return true
-        }
-
-        if provider == .custom {
-            guard let modelName = configuration.modelName else { return false }
-            return CustomAIProviderManager.shared.requestConfiguration(forModel: modelName) != nil
-        }
-
-        return APIKeyManager.shared.hasAPIKey(forProvider: provider.rawValue)
+        false
     }
 
     private func waitForRateLimit() async throws {
@@ -175,129 +157,10 @@ class AIEnhancementService: ObservableObject {
         contextSnapshot: RecordingContextSnapshot?,
         vocabulary: RecordingVocabulary
     ) async throws -> (text: String, systemMessage: String?, userMessage: String?) {
-        guard isConfigured(for: configuration) else {
-            throw EnhancementError.notConfigured
-        }
-
-        guard let provider = configuration.provider else {
-            throw EnhancementError.notConfigured
-        }
-
-        guard !text.isEmpty else {
-            return ("", nil, nil)
-        }
-
-        if provider == .voiceInkRefine {
-            do {
-                let result = try await aiService.enhanceWithVoiceInkRefine(transcript: text, vocabulary: vocabulary)
-                let filteredResult = AIEnhancementOutputFilter.filter(
-                    result.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-                guard !filteredResult.isEmpty else {
-                    throw EnhancementError.enhancementFailed
-                }
-                return (
-                    filteredResult,
-                    nil,
-                    text
-                )
-            } catch is CancellationError {
-                throw CancellationError()
-            } catch {
-                throw EnhancementError.customError(error.localizedDescription)
-            }
-        }
-
-        guard let prompt = configuration.prompt else {
-            throw EnhancementError.notConfigured
-        }
-
-        let modelName = configuration.modelName ?? provider.defaultModel
-        let formattedText = "\n<TRANSCRIPT>\n\(text)\n</TRANSCRIPT>"
-        let systemMessage = getSystemMessage(
-            prompt: prompt,
-            configuration: configuration,
-            contextSnapshot: contextSnapshot,
-            vocabulary: vocabulary
-        )
-
-        if provider != .openRouter, provider != .ollama, provider != .localCLI {
-            try await waitForRateLimit()
-        }
-
-        do {
-            let completion = try await aiService.performChatCompletion(
-                provider: provider,
-                modelName: modelName,
-                messages: [.user(formattedText)],
-                systemPrompt: systemMessage,
-                localUserPrompt: formattedText,
-                timeout: requestTimeout,
-                retryOnTimeout: EnhancementRequestSettings.retryOnTimeout
-            )
-            if let openRouterCompletion = completion.openRouterCompletion {
-                let routedProvider = openRouterCompletion.provider ?? "unknown"
-                let routingAttempt = openRouterCompletion.metadata?.attempt ?? 0
-                let reasoningTokens = openRouterCompletion.usage?.reasoningTokens ?? 0
-                logger.debug(
-                    "OpenRouter completed requestedModel=\(modelName, privacy: .public) routedProvider=\(routedProvider, privacy: .public) routingAttempt=\(routingAttempt, privacy: .public) reasoningTokens=\(reasoningTokens, privacy: .public)"
-                )
-            }
-            let filteredResult = AIEnhancementOutputFilter.filter(
-                completion.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            )
-            guard provider == .ollama || provider == .localCLI || !filteredResult.isEmpty else {
-                throw EnhancementError.enhancementFailed
-            }
-            return (
-                filteredResult,
-                systemMessage,
-                formattedText
-            )
-        } catch let error as LLMKitError {
-            throw mapLLMKitError(error)
-        } catch let error as LocalAIError {
-            if case .timeout = error {
-                throw EnhancementError.timeout
-            }
-            throw EnhancementError.customError(
-                error.errorDescription ?? "An unknown Ollama error occurred."
-            )
-        } catch let error as LocalCLIError {
-            if case .timeout = error {
-                throw EnhancementError.timeout
-            }
-            throw EnhancementError.customError(
-                error.errorDescription ?? "An unknown Local CLI error occurred."
-            )
-        } catch let error as EnhancementError {
-            throw error
-        } catch {
-            throw EnhancementError.customError(error.localizedDescription)
-        }
+        throw OfflineMode.unavailable
     }
 
-    private func mapLLMKitError(_ error: LLMKitError) -> EnhancementError {
-        switch error {
-        case .missingAPIKey:
-            return .notConfigured
-        case .httpError(let statusCode, let message):
-            if statusCode == 429 { return .rateLimitExceeded }
-            if statusCode == 408 { return .timeout }
-            if (500...599).contains(statusCode) { return .serverError }
-            return .customError("HTTP \(statusCode): \(message)")
-        case .noResultReturned:
-            return .enhancementFailed
-        case .networkError:
-            return .networkError
-        case .timeout:
-            return .timeout
-        case .invalidURL, .decodingError, .encodingError:
-            return .customError(error.localizedDescription)
-        case .unsupportedModel(let model):
-            return .customError("Unsupported model: \(model)")
-        }
-    }
+
 
     func enhance(
         _ text: String,

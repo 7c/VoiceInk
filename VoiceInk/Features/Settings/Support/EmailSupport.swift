@@ -52,7 +52,7 @@ struct EmailSupport {
         SystemInfoService.shared.copySystemInfoToClipboard()
 
         if let emailURL = generateSupportEmailURL() {
-            NSWorkspace.shared.open(emailURL)
+            OfflineWorkspace.open(emailURL)
         }
     }
 }

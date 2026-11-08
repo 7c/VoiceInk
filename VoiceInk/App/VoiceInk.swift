@@ -1,6 +1,5 @@
 import AppIntents
 import AppKit
-import FluidAudio
 import OSLog
 import SwiftData
 import SwiftUI
@@ -41,8 +40,6 @@ struct VoiceInkApp: App {
     init() {
         _ = LogExporter.shared
 
-        // Disable HTTP response caching — prevents API responses from being stored in Cache.db
-        URLCache.shared = URLCache(memoryCapacity: 0, diskCapacity: 0)
 
         AppDefaults.registerDefaults()
         StreamingKeysMigration.migrateSonioxV6()
@@ -116,7 +113,7 @@ struct VoiceInkApp: App {
 
         // 1. Create modelsDirectory URL
         let appSupportDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk")
+            .appendingPathComponent("local.VoiceInk.Offline")
         let modelsDirectory = appSupportDirectory.appendingPathComponent("WhisperModels")
 
         // 2. Create model managers
@@ -225,7 +222,7 @@ struct VoiceInkApp: App {
 
     private static func createPersistentContainer(schema: Schema, logger: Logger) throws -> ModelContainer {
         let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+            .appendingPathComponent("local.VoiceInk.Offline", isDirectory: true)
 
         try? FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
 
@@ -242,18 +239,11 @@ struct VoiceInkApp: App {
         )
 
         let dictionarySchema = Schema([VocabularyWord.self, WordReplacement.self])
-        // Dev shares the local stores but must never connect to CloudKit.
-        #if DEBUG || LOCAL_BUILD
-            let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .none
-        #else
-            let dictionaryCloudKit: ModelConfiguration.CloudKitDatabase = .private(
-                "iCloud.com.prakashjoshipax.VoiceInk")
-        #endif
         let dictionaryConfig = ModelConfiguration(
             "dictionary",
             schema: dictionarySchema,
             url: dictionaryStoreURL,
-            cloudKitDatabase: dictionaryCloudKit
+            cloudKitDatabase: .none
         )
 
         let statsSchema = Schema([SessionMetric.self])
@@ -315,7 +305,7 @@ struct VoiceInkApp: App {
                             }
                             showLaunchRemindersIfNeeded()
 
-                            GitHubStarPromptCoordinator.shared.scheduleIfNeeded(modelContainer: container)
+
 
                             // Run due audio-only cleanup and schedule future checks when transcript cleanup is not managing retention.
                             if !UserDefaults.standard.bool(forKey: CleanupSettingsKeys.isTranscriptionCleanupEnabled)
@@ -367,6 +357,7 @@ struct VoiceInkApp: App {
                 }
             }
             .confettiCelebrationPresenter()
+            .environment(\.openURL, OpenURLAction { _ in .discarded })
             .onReceive(
                 LifecycleObserver.shared.publisher(
                     for: [.applicationDidBecomeActive, .systemDidWake]
@@ -448,7 +439,7 @@ struct VoiceInkApp: App {
 
     private static func openAccessibilitySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
+            OfflineWorkspace.open(url)
         }
     }
 }

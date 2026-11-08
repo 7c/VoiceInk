@@ -1,5 +1,4 @@
 import Foundation
-import LLMkit
 
 enum AutoLearnReviewEligibility {
     static func accepts(source: String?, destination: String, aiReviewConfigurationID: String? = nil,
@@ -51,42 +50,7 @@ struct AutoLearnAIReviewer {
 
     @MainActor
     func review(_ candidates: [AutoLearnReviewCandidate]) async throws -> [AutoLearnReviewDecision] {
-        guard let selection = AutoLearnSettings.reviewerSelection,
-            let provider = AIProvider(rawValue: selection.providerName), provider.supportsEnhancement,
-            provider != .voiceInkRefine,
-            !selection.modelName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { throw EnhancementError.notConfigured }
-        try Task.checkCancellation()
-        let pairs = candidates.compactMap { candidate -> Pair? in
-            guard Self.canReview(candidate),
-                let pair = CorrectionDiffEngine.replacementPair(from: .init(
-                    original: candidate.originalText, corrected: candidate.correctedText))
-            else { return nil }
-            return Pair(id: candidate.candidateID.uuidString, source: pair.source, target: pair.destination)
-        }
-        // Do not consume legacy queue entries that could not be sent to the AI.
-        guard pairs.count == candidates.count,
-            Set(pairs.map(\.id)).count == pairs.count else { throw Failure.invalidCandidates }
-        guard !pairs.isEmpty else { return [] }
-        let payload = String(decoding: try JSONEncoder().encode(pairs), as: UTF8.self)
-        let completion = try await Self.aiService.performChatCompletion(provider: provider,
-            modelName: selection.modelName, messages: [.user(payload)],
-            systemPrompt: Self.instructions, localUserPrompt: payload,
-            timeout: EnhancementRequestSettings.timeout,
-            retryOnTimeout: EnhancementRequestSettings.retryOnTimeout)
-        try Task.checkCancellation()
-        guard selection == AutoLearnSettings.reviewerSelection else { throw CancellationError() }
-        let response = try Self.decodeResponse(completion.text)
-        guard response.count == pairs.count,
-            Set(response.map(\.id)) == Set(pairs.map(\.id)) else { throw Failure.invalidResponse }
-        let verdicts = Dictionary(uniqueKeysWithValues: response.map { ($0.id, $0.decision) })
-        let decisions = pairs.compactMap { pair -> AutoLearnReviewDecision? in
-            guard verdicts[pair.id] == .reusable, let id = UUID(uuidString: pair.id) else { return nil }
-            return AutoLearnReviewDecision(candidateID: id, learningAction: .addReplacementOnly,
-                incorrectTextToReplace: pair.source, correctedVocabularyTerm: pair.target,
-                aiReviewConfigurationID: selection.configurationID)
-        }
-        return AutoLearnSuggestionLimiter.limit(decisions, candidates: candidates)
+        throw OfflineMode.unavailable
     }
 
     // Normalize formatting without inferring IDs or approval.

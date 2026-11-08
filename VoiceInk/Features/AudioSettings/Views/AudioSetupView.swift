@@ -34,7 +34,7 @@ struct AudioSetupView: View {
             Section {
                 Toggle("Mute Audio While Recording", isOn: $mediaController.isSystemMuteEnabled)
 
-                Toggle("Pause Media While Recording", isOn: $playbackController.isPauseMediaEnabled)
+                Text("Automatic media pause is unavailable in the offline edition.").foregroundStyle(.secondary)
 
                 LabeledContent("Resume Delay") {
                     resumeDelayMenu

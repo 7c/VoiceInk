@@ -1,5 +1,4 @@
 import Foundation
-import LLMkit
 import os
 
 /// Encapsulates a single recording-to-transcription lifecycle (streaming or file-based).
@@ -147,10 +146,6 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             await startupTask?.value
         }
         try checkCancellation()
-        if let error = startupError as? ElevenLabsStreamingError, !error.allowsBatchFallback {
-            stopStreaming()
-            throw error
-        }
         if !isUnified, !requiresStreaming, !streamingService.isActive {
             streamingFailed = true
         }
@@ -173,9 +168,6 @@ final class StreamingTranscriptionSession: TranscriptionSession {
             } catch {
                 if isCancelled || Task.isCancelled || error is CancellationError {
                     throw CancellationError()
-                }
-                if let error = error as? ElevenLabsStreamingError, !error.allowsBatchFallback {
-                    throw error
                 }
                 logger.error("❌ Streaming failed, falling back to batch: \(error, privacy: .public)")
             }

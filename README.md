@@ -1,108 +1,61 @@
-<div align="center">
-  <img src="VoiceInk/Assets.xcassets/AppIcon.appiconset/256-mac.png" width="180" height="180" />
-  <h1>VoiceInk</h1>
-  <p>Voice to text app for macOS to transcribe what you say to text almost instantly</p>
+# VoiceInk Offline
 
-  [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-  ![Platform](https://img.shields.io/badge/platform-macOS%2015.0%2B-brightgreen)
-  [![GitHub release (latest by date)](https://img.shields.io/github/v/release/Beingpax/VoiceInk)](https://github.com/Beingpax/VoiceInk/releases)
-  ![GitHub all releases](https://img.shields.io/github/downloads/Beingpax/VoiceInk/total)
-  ![GitHub stars](https://img.shields.io/github/stars/Beingpax/VoiceInk?style=social)
-  <p>
-    <a href="https://tryvoiceink.com">Website</a> •
-    <a href="https://www.youtube.com/@tryvoiceink">YouTube</a>
-  </p>
+A local-only edition of VoiceInk for macOS. The app uses Apple frameworks and the Swift standard library; there are no Swift packages, vendored libraries, downloaded frameworks, or model downloads in the build.
 
-  <a href="https://tryvoiceink.com">
-    <img src="https://img.shields.io/badge/Download%20Now-Latest%20Version-blue?style=for-the-badge&logo=apple" alt="Download VoiceInk" width="250"/>
-  </a>
-</div>
+## Changes in this fork
 
----
+- **Offline transcription:** uses Apple Speech with language assets already installed on the Mac. Removed third-party packages, bundled model runtimes, model downloads, cloud providers, licensing requests, updates, and remote announcements.
+- **Network restriction:** the app installs a process sandbox that denies incoming and outgoing networking, including loopback, and refuses to start if that restriction fails. This applies to VoiceInk and its children, not the rest of macOS or applications receiving pasted text.
+- **Prompt Snippets:** optional, editable voice commands such as “insert prompt code review” paste a saved prompt. Includes three starters, a command preview, local storage, and settings backup support.
+- **Launch at Login:** opt-in startup in Settings, with approval guidance and visible registration errors. Launching the app does not start recording.
+- **Local developer commands:** a sectioned, colored `make` help screen, readiness checks with `make doctor`, build/run commands, installation to Applications, `kill-installed`, and an app-scoped permission reset.
+- **Verification and publication checks:** tests for offline enforcement, local speech, prompt snippets, and developer commands; `make privacy-check` checks publishable files for common secrets, private paths, and generated artifacts.
 
-VoiceInk is a native macOS application that transcribes what you say to text almost instantly. You can find all the information and download the app from [here](https://tryvoiceink.com). 
+AI enhancement and assistant responses are unavailable in this edition. System frameworks and installed Apple Speech assets are still required. Original upstream attribution and Git history are preserved.
 
-![VoiceInk Mac App](https://github.com/user-attachments/assets/12367379-83e7-48a6-b52c-4488a6a04bba)
+## Build and run
 
-After dedicating the past 5 months to developing this app, I've decided to open source it for the greater good. 
+Requires Xcode 26 or newer. Transcription requires macOS 26 and an Apple Speech language already installed on the Mac.
 
-My goal is to make it **the most efficient and privacy-focused voice-to-text solution for macOS** that is a joy to use. While the source code is now open for experienced developers to build and contribute, purchasing a license helps support continued development and gives you access to automatic updates, priority support, and upcoming features.
-
-## Features
-
-- 🎙️ **Accurate Transcription**: Local AI models that transcribe your voice to text with 99% accuracy, almost instantly
-- 🔒 **Privacy First**: 100% offline processing ensures your data never leaves your device
-- ⚡ **Modes**: Intelligent app detection automatically applies your perfect pre-configured settings based on the app/ URL you're on
-- 🧠 **Context Aware**: Smart AI that understands your screen content and adapts to the context
-- 🎯 **Global Shortcuts**: Configurable keyboard or mouse shortcuts for quick recording and push-to-talk functionality
-- 📝 **Personal Dictionary**: Train the AI to understand your unique terminology with custom words, industry terms, and smart text replacements
-- 🔄 **Smart Modes**: Instantly switch between AI-powered modes optimized for different writing styles and contexts
-- 🤖 **AI Assistant**: Built-in voice assistant mode for a quick chatGPT like conversational assistant
-
-## Get Started
-
-### Download
-Get the latest version with a free trial from [tryvoiceink.com](https://tryvoiceink.com). Your purchase helps me work on VoiceInk full-time and continuously improve it with new features and updates.
-
-#### Homebrew
-Alternatively, you can install VoiceInk via `brew`:
-
-```shell
-brew install --cask voiceink
+```sh
+make          # Show grouped, colored help
+make doctor   # Check local readiness without downloading anything
+make run      # Build and launch
+make install  # Build and copy to /Applications
 ```
 
-### Build from Source
-As an open-source project, you can build VoiceInk yourself by following the instructions in [BUILDING.md](BUILDING.md). However, the compiled version includes additional benefits like automatic updates, priority support via Discord and email, and helps fund ongoing development.
+The app is built at `.local-build/Build/Products/Release/VoiceInk.app`, with ad-hoc signing and the separate bundle identifier `local.VoiceInk.Offline`. Its transcript/dictionary database uses `~/Library/Application Support/local.VoiceInk.Offline`. The build does not resolve packages or fetch source. `make clean` removes only this repository's build output.
 
-## Requirements
+Use `make open-installed` to open the Applications copy. Enable auto start on demand in **Settings → General → Launch at Login**. `make reset-permissions` resets only VoiceInk’s macOS privacy permissions; settings and history are retained.
 
-- macOS 15.0 or later
+Use `make kill-installed` to stop the Applications copy (an active recording may be lost). To upgrade and reopen: `make kill-installed && make install && make open-installed`. These commands also accept `INSTALL_DIR` for a custom installation folder.
 
-## Documentation
+Allow microphone access to record. Accessibility access enables global shortcuts and pasting into other apps. On first launch, choose a language and open VoiceInk; a local dictation mode is created automatically. Use the Speech Model screen to check whether a language is installed. Missing language assets produce an error; the app never downloads them or falls back to a server.
 
-- [Building from Source](BUILDING.md) - Detailed instructions for building the project
-- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to VoiceInk
-- [Code of Conduct](CODE_OF_CONDUCT.md) - Our community standards
+## Offline behavior
 
-## Contributing
+- A C initializer applies a macOS process sandbox denying all network operations before Swift app initialization. Incoming and outgoing connections, including loopback, are blocked. The restriction is inherited by children. If it cannot be installed, the app exits with status 78.
+- Cloud transcription, Whisper/FluidAudio/TranscribeCpp runtimes, downloaded LLMs, Ollama, CLI enhancement, custom command execution, automatic updates, remote announcements, license requests, and iCloud sync are removed.
+- Links cannot hand networking off to a browser or email client. Only System Settings links are opened.
+- Recording, Apple Speech transcription, local audio import, history, dictionary, modes, shortcuts, and local text processing remain. AI enhancement and assistant responses are unavailable. Markdown uses plain text; automatic media pause is unavailable after removal of MediaRemoteAdapter.
+- Legacy provider names and some unavailable service interfaces remain only to keep saved settings/history compatible; no external implementation or dependency is included.
 
-This project is **not accepting pull requests** at this time. You're welcome to fork and modify VoiceInk for your own use.
+The process restriction does not turn off networking for macOS or unrelated applications. Apple Speech uses installed OS assets through local system services; this app never asks those services to install assets.
 
-You can still contribute by:
-- Reporting bugs via [issues](https://github.com/Beingpax/VoiceInk/issues)
-- Suggesting features or enhancements
-- Improving documentation via issues
+## Verification
 
-For more details, see our [Contributing Guidelines](CONTRIBUTING.md). For build instructions, see our [Building Guide](BUILDING.md).
+```sh
+make test
+```
 
-## License
+This tests the developer commands, audits the project and source, tests kernel denial of TCP/IPv6 networking using the production guard, tests abort-on-guard-failure, and checks the signed app's linked libraries when built. See [BUILDING.md](BUILDING.md) for the local speech smoke test.
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+Original VoiceInk attribution and license are preserved in [LICENSE](LICENSE).
 
-## Support
+## Prompt Snippets
 
-If you encounter any issues or have questions, please:
-1. Check the existing issues in the GitHub repository
-2. Create a new issue if your problem isn't already reported
-3. Provide as much detail as possible about your environment and the problem
+In **Settings → Prompt Snippets**, enable reusable voice prompts. Press your usual recording shortcut, say **“insert prompt code review”**, then stop recording. VoiceInk pastes a ready-to-use review prompt into the focused field. Dictate or paste the code next.
 
-## Acknowledgments
+Three editable starters are included: **code review**, **make a plan**, and **clear writing**. Add your own names and prompt text, and use **Try a command** to preview the result without recording or touching your clipboard. Edits save automatically on this Mac and are included in General Settings backups.
 
-### Core Technology
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) - High-performance inference of OpenAI's Whisper model
-- [FluidAudio](https://github.com/FluidInference/FluidAudio) - Used for Parakeet model implementation
-- [TranscribeCpp for Swift](https://github.com/Beingpax/Transcribe-cpp-swift) - SwiftPM distribution of [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp), used for local GGUF transcription models
-- [SenseVoice Small](https://huggingface.co/FunAudioLLM/SenseVoiceSmall) by FunAudioLLM / Alibaba - Multilingual model available under the [FunASR Model Open Source License Agreement](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)
-
-### Essential Dependencies
-- [Sparkle](https://github.com/sparkle-project/Sparkle) - Keeping VoiceInk up to date
-- [KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts) - User-customizable keyboard shortcuts
-- [LaunchAtLogin](https://github.com/sindresorhus/LaunchAtLogin) - Launch at login functionality
-- [MediaRemoteAdapter](https://github.com/ejbills/mediaremote-adapter) - Media playback control during recording
-- [Zip](https://github.com/marmelroy/Zip) - File compression and decompression utilities
-- [Swift Atomics](https://github.com/apple/swift-atomics) - Low-level atomic operations for thread-safe concurrent programming
-
-
----
-
-Made with ❤️ by Pax
+Only a complete `insert prompt <name>` command expands, ignoring punctuation and capitalization. Unknown, duplicate, or empty snippets leave your dictated text unchanged. This is an opt-in, local text expansion feature for recording-to-paste; it makes no AI or network calls and follows your existing paste and Auto Send settings. The expanded prompt is saved in transcription history.

@@ -35,18 +35,7 @@ class TranscriptionServiceRegistry {
     }
 
     func service(for provider: ModelProvider) -> TranscriptionService {
-        switch provider {
-        case .whisper:
-            return localTranscriptionService
-        case .fluidAudio:
-            return fluidAudioTranscriptionService
-        case .transcribeCpp:
-            return transcribeCppTranscriptionService
-        case .nativeApple:
-            return nativeAppleTranscriptionService
-        default:
-            return cloudTranscriptionService
-        }
+        provider == .nativeApple ? nativeAppleTranscriptionService : cloudTranscriptionService
     }
 
     func transcribe(
@@ -82,7 +71,7 @@ class TranscriptionServiceRegistry {
 
     /// Whether the resolved transcription configuration should use real-time transcription.
     func shouldUseRealtimeTranscription(for configuration: TranscriptionRuntimeConfiguration) -> Bool {
-        configuration.isRealtimeEnabled
+        false
     }
 
     func cleanup() async {

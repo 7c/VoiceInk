@@ -41,7 +41,7 @@ final class KeychainService {
     func save(
         _ value: String,
         forKey key: String,
-        syncable: Bool = true,
+        syncable: Bool = false,
         accessibility: Accessibility? = nil
     ) -> Bool {
         guard let data = value.data(using: .utf8) else {
@@ -56,7 +56,7 @@ final class KeychainService {
     func save(
         data: Data,
         forKey key: String,
-        syncable: Bool = true,
+        syncable: Bool = false,
         accessibility: Accessibility? = nil
     ) -> Bool {
         let query = baseQuery(forKey: key, syncable: syncable)
@@ -109,7 +109,7 @@ final class KeychainService {
     }
 
     /// Retrieves a string value from Keychain.
-    func getString(forKey key: String, syncable: Bool = true) -> String? {
+    func getString(forKey key: String, syncable: Bool = false) -> String? {
         guard let data = getData(forKey: key, syncable: syncable) else {
             return nil
         }
@@ -117,7 +117,7 @@ final class KeychainService {
     }
 
     /// Retrieves a string while distinguishing missing data from unavailable storage.
-    func readString(forKey key: String, syncable: Bool = true) -> ReadResult<String> {
+    func readString(forKey key: String, syncable: Bool = false) -> ReadResult<String> {
         switch readData(forKey: key, syncable: syncable) {
         case .value(let data):
             guard let value = String(data: data, encoding: .utf8) else {
@@ -133,7 +133,7 @@ final class KeychainService {
     }
 
     /// Retrieves data from Keychain.
-    func getData(forKey key: String, syncable: Bool = true) -> Data? {
+    func getData(forKey key: String, syncable: Bool = false) -> Data? {
         guard case .value(let data) = readData(forKey: key, syncable: syncable) else {
             return nil
         }
@@ -141,7 +141,7 @@ final class KeychainService {
     }
 
     /// Retrieves data while preserving the Security framework status.
-    func readData(forKey key: String, syncable: Bool = true) -> ReadResult<Data> {
+    func readData(forKey key: String, syncable: Bool = false) -> ReadResult<Data> {
         var query = baseQuery(forKey: key, syncable: syncable)
         query[kSecReturnData as String] = kCFBooleanTrue
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -176,7 +176,7 @@ final class KeychainService {
 
     /// Deletes an item from Keychain.
     @discardableResult
-    func delete(forKey key: String, syncable: Bool = true) -> Bool {
+    func delete(forKey key: String, syncable: Bool = false) -> Bool {
         let query = baseQuery(forKey: key, syncable: syncable)
         let status = SecItemDelete(query as CFDictionary)
 
@@ -195,7 +195,7 @@ final class KeychainService {
     }
 
     /// Checks if a key exists in Keychain.
-    func exists(forKey key: String, syncable: Bool = true) -> Bool {
+    func exists(forKey key: String, syncable: Bool = false) -> Bool {
         var query = baseQuery(forKey: key, syncable: syncable)
         query[kSecReturnData as String] = kCFBooleanFalse
 
@@ -222,9 +222,7 @@ final class KeychainService {
         #if !LOCAL_BUILD
             query[kSecUseDataProtectionKeychain as String] = true
 
-            if syncable {
-                query[kSecAttrSynchronizable as String] = kCFBooleanTrue
-            }
+            query[kSecAttrSynchronizable as String] = kCFBooleanFalse
         #endif
 
         return query

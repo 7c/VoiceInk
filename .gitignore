@@ -36,6 +36,32 @@ build/
 .review-build/
 .local-dependencies/
 
+# Local/private files and generated artifacts (never publish)
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+*.mobileprovision
+*.log
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.app/
+*.xcarchive/
+*.xcresult/
+*.profdata
+recordings/
+transcripts/
+private/
+
 # CocoaPods
 #
 # We recommend against adding the Pods directory to your .gitignore. However

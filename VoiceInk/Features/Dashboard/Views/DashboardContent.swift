@@ -32,7 +32,6 @@ struct DashboardContent: View {
     @State private var selectedInsightPeriod: DashboardInsightPeriod = .allTime
     @State private var isAccessibilityEnabled = AXIsProcessTrusted()
     @ObservedObject private var modeManager = ModeManager.shared
-    @ObservedObject private var starPrompt = GitHubStarPromptCoordinator.shared
     @State private var isSystemInfoCopied = false
     @State private var isEditingDisplayName = false
     @State private var displayNameDraft = ""
@@ -372,7 +371,7 @@ struct DashboardContent: View {
 
     private func openAccessibilitySettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
+            OfflineWorkspace.open(url)
         }
     }
 
@@ -494,30 +493,7 @@ struct DashboardContent: View {
     // MARK: - Sections
 
     @ViewBuilder
-    private var licenseStatusMessage: some View {
-        switch licenseState {
-        case .unlicensed:
-            TrialMessageView(
-                message: Text("Activate a license to continue using VoiceInk."),
-                type: .licenseRequired,
-                onAddLicenseKey: onAddLicenseKey
-            )
-        case .trial(let daysRemaining):
-            TrialMessageView(
-                message: Text(String(localized: "You have \(daysRemaining) days left in your trial")),
-                type: daysRemaining <= 2 ? .warning : .info,
-                onAddLicenseKey: onAddLicenseKey
-            )
-        case .trialExpired:
-            TrialMessageView(
-                message: nil,
-                type: .expired,
-                onAddLicenseKey: onAddLicenseKey
-            )
-        case .licensed:
-            EmptyView()
-        }
-    }
+    private var licenseStatusMessage: some View { EmptyView() }
 
     private var dashboardInsightsView: some View {
         DashboardInsightsView(
@@ -549,33 +525,8 @@ struct DashboardContent: View {
         )
     }
 
-    @ViewBuilder
-    private var footerStarButtonLabel: some View {
-        if starPrompt.openFailed {
-            footerActionLabel(icon: "exclamationmark.triangle.fill", title: "Couldn't open — try again", color: .orange)
-        } else {
-            switch starPrompt.completionState {
-            case .starred:
-                footerActionLabel(icon: "checkmark", title: "Starred — thank you!", color: AppTheme.Sidebar.license)
-            case .opened:
-                footerActionLabel(icon: "arrow.up.right", title: "GitHub opened", color: AppTheme.Sidebar.fallback)
-            case .none:
-                footerActionLabel(icon: "star", title: "Star on GitHub", color: AppTheme.Sidebar.fallback)
-            }
-        }
-    }
-
     private var footerActionsView: some View {
         HStack(alignment: .center, spacing: 12) {
-            if starPrompt.showsFooterStarButton {
-                Button(action: { starPrompt.star() }) {
-                    footerStarButtonLabel
-                }
-                .buttonStyle(.plain)
-                .fixedSize(horizontal: true, vertical: true)
-                .disabled(starPrompt.isStarring || starPrompt.completionState != .none)
-                .animation(.easeInOut(duration: 0.15), value: starPrompt.openFailed)
-            }
 
             Button(action: copySystemInfo) {
                 footerActionLabel(

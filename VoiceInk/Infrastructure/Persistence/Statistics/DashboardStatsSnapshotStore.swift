@@ -52,7 +52,7 @@ final class DashboardStatsSnapshotStore: @unchecked Sendable {
                 "Library/Application Support", isDirectory: true)
         let appSupportURL =
             appSupportRoot
-            .appendingPathComponent("com.prakashjoshipax.VoiceInk", isDirectory: true)
+            .appendingPathComponent("local.VoiceInk.Offline", isDirectory: true)
         self.snapshotURL = appSupportURL.appendingPathComponent("dashboard-stats-snapshot.json")
     }
 

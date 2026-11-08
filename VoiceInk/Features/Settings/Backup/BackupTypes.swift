@@ -102,6 +102,8 @@ struct GeneralBackup: Codable {
     let isAutoLearnDictionaryEnabled: Bool?
     let autoLearnMinimumCorrections: Int?
     let autoLearnAIReviewMode: String?
+    var promptSnippetsEnabled: Bool? = nil
+    var promptSnippets: [PromptSnippet]? = nil
 }
 
 struct WordBackup: Codable {

@@ -198,6 +198,13 @@ enum BackupImporter {
         if let enabled = general.smartPunctuationEnabled {
             UserDefaults.standard.set(enabled, forKey: SmartPunctuation.settingsKey)
         }
+        if let snippets = general.promptSnippets {
+            // Imported IDs need not be unique; give every editor row its own identity.
+            PromptSnippetStore.shared.snippets = snippets.map { PromptSnippet(name: $0.name, text: $0.text) }
+        }
+        if let enabled = general.promptSnippetsEnabled {
+            UserDefaults.standard.set(enabled, forKey: PromptSnippet.enabledKey)
+        }
         if let finishAndSendKey = general.finishAndSendKey.flatMap(FinishAndSendKey.init(rawValue:)) {
             UserDefaults.standard.set(finishAndSendKey.rawValue, forKey: FinishAndSendSettings.key)
         }

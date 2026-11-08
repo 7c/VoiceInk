@@ -142,11 +142,16 @@ struct MenuBarView: View {
             Toggle(
                 "Launch at Login",
                 isOn: Binding(
-                    get: { launchAtLoginManager.isEnabled },
+                    get: { launchAtLoginManager.isRequested },
                     set: { launchAtLoginManager.setEnabled($0) }
                 )
             )
             .disabled(launchAtLoginManager.isUpdating)
+            .onAppear { launchAtLoginManager.refresh() }
+            if launchAtLoginManager.requiresApproval || launchAtLoginManager.lastError != nil {
+                Button("Open Login Items…") { launchAtLoginManager.openLoginItemsSettings() }
+            }
+
 
             Divider()
 

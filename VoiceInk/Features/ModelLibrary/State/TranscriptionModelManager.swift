@@ -77,18 +77,7 @@ class TranscriptionModelManager: ObservableObject {
     // MARK: - Model loading from UserDefaults
 
     func loadCurrentTranscriptionModel() {
-        if let savedModelName = UserDefaults.standard.string(forKey: "CurrentTranscriptionModel"),
-            let savedModel = TranscriptionModelRegistry.model(forSelectionKey: savedModelName, in: allAvailableModels)
-        {
-            guard isAvailableOnCurrentOS(savedModel) else {
-                UserDefaults.standard.removeObject(forKey: "CurrentTranscriptionModel")
-                currentTranscriptionModel = nil
-                return
-            }
-
-            currentTranscriptionModel = savedModel
-            ensureSelectedLanguageIsSupported(by: savedModel)
-        }
+        if let native = allAvailableModels.first { setDefaultTranscriptionModel(native) }
     }
 
     // MARK: - Set default model
@@ -156,12 +145,7 @@ class TranscriptionModelManager: ObservableObject {
     }
 
     func refreshOpenRouterCatalog() async {
-        do {
-            try await OpenRouterTranscriptionCatalog.refresh()
-            refreshAllAvailableModels()
-        } catch {
-            logger.error("Failed to refresh OpenRouter transcription models: \(error.localizedDescription, privacy: .public)")
-        }
+        return
     }
 
     // MARK: - Clear current model

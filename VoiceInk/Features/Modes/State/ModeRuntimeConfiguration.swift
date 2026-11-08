@@ -150,34 +150,8 @@ enum ModeRuntimeResolver {
         enhancementService: AIEnhancementService,
         aiService: AIService
     ) -> EnhancementRuntimeConfiguration {
-        let mode = mode ?? ModeManager.shared.currentEffectiveConfiguration
-        let provider = resolvedProvider(
-            providerName: mode?.selectedAIProvider,
-            aiService: aiService
-        )
-        let prompt =
-            provider == .voiceInkRefine
-            ? nil
-            : resolvedPrompt(
-                promptId: mode?.selectedPrompt,
-                enhancementService: enhancementService
-            )
-        let modelName = resolvedEnhancementModelName(
-            provider: provider,
-            configuredModelName: mode?.selectedAIModel,
-            aiService: aiService
-        )
-
-        return EnhancementRuntimeConfiguration(
-            mode: mode,
-            isEnabled: mode?.isAIEnhancementEnabled ?? false,
-            prompt: prompt,
-            provider: provider,
-            modelName: modelName,
-            useClipboardContext: provider == .voiceInkRefine ? false : mode?.useClipboardContext ?? false,
-            useSelectedTextContext: provider == .voiceInkRefine ? false : mode?.useSelectedTextContext ?? true,
-            useScreenCaptureContext: provider == .voiceInkRefine ? false : mode?.useScreenCapture ?? false
-        )
+        EnhancementRuntimeConfiguration(mode: mode, isEnabled: false, prompt: nil, provider: nil,
+            modelName: nil, useClipboardContext: false, useSelectedTextContext: false, useScreenCaptureContext: false)
     }
 
     static func outputConfiguration(mode: ModeConfig? = nil) -> OutputRuntimeConfiguration {

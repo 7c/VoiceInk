@@ -21,7 +21,7 @@ final class AnnouncementManager {
             },
             onLearnMore: { [weak self] in
                 if let url = learnMoreURL {
-                    NSWorkspace.shared.open(url)
+                    OfflineWorkspace.open(url)
                 }
                 onDismiss()
                 self?.dismiss()

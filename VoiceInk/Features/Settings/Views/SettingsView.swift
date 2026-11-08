@@ -134,6 +134,8 @@ struct SettingsView: View {
 
             }
 
+            PromptSnippetsSettingsView()
+
             Section("Pasting") {
                 Picker(selection: $finishAndSendKey) {
                     ForEach(FinishAndSendKey.allCases, id: \.self) { key in
@@ -243,35 +245,43 @@ struct SettingsView: View {
                 Toggle(
                     String(localized: "Launch at Login"),
                     isOn: Binding(
-                        get: { launchAtLoginManager.isEnabled },
+                        get: { launchAtLoginManager.isRequested },
                         set: { launchAtLoginManager.setEnabled($0) }
                     )
                 )
                 .disabled(launchAtLoginManager.isUpdating)
+                .help("Start VoiceInk automatically when you log in to your Mac. Turn off to remove it from Login Items.")
+                .onAppear { launchAtLoginManager.refresh() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                    launchAtLoginManager.refresh()
+                }
 
-                Toggle(
-                    "Automatically Check for Updates",
-                    isOn: Binding(
-                        get: { updaterViewModel.automaticallyChecksForUpdates },
-                        set: { updaterViewModel.setAutomaticallyChecksForUpdates($0) }
-                    ))
-                    .help("Checks for updates in the background while VoiceInk is running.")
+                Text("Optional: opens VoiceInk at login. Recording still starts only when you use your shortcut.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                Toggle("Show Announcements", isOn: $enableAnnouncements)
-                    .onChange(of: enableAnnouncements) { _, newValue in
-                        if newValue {
-                            AnnouncementsService.shared.start()
-                        } else {
-                            AnnouncementsService.shared.stop()
-                        }
+                if launchAtLoginManager.requiresApproval {
+                    HStack {
+                        Text("Allow VoiceInk in macOS Login Items to finish enabling auto start.")
+                            .font(.caption)
+                        Button("Open Login Items") { launchAtLoginManager.openLoginItemsSettings() }
                     }
+                }
 
+                if let error = launchAtLoginManager.lastError {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Could not change Launch at Login: \(error)")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                        Text("Run the installed copy in Applications, then try again.")
+                            .font(.caption)
+                        Button("Open Login Items") { launchAtLoginManager.openLoginItemsSettings() }
+                    }
+                }
+
+
+                Text("Offline edition — updates and announcements are disabled.").foregroundStyle(.secondary)
                 HStack {
-                    Button("Check for Updates") {
-                        updaterViewModel.checkForUpdates()
-                    }
-                    .disabled(!updaterViewModel.canCheckForUpdates)
-
                     Button("Reset Onboarding") {
                         showResetOnboardingAlert = true
                     }

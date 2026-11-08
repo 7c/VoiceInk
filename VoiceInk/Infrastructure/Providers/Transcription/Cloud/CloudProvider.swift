@@ -31,19 +31,7 @@ extension CloudProvider {
 }
 
 enum CloudProviderRegistry {
-    static let allProviders: [any CloudProvider] = [
-        GroqProvider(),
-        ElevenLabsProvider(),
-        DeepgramProvider(),
-        MistralProvider(),
-        GeminiProvider(),
-        SonioxProvider(),
-        SpeechmaticsProvider(),
-        AssemblyAIProvider(),
-        XAIProvider(),
-        CartesiaProvider(),
-        OpenRouterProvider(),
-    ]
+    static let allProviders: [any CloudProvider] = []
 
     static func provider(for modelProvider: ModelProvider) -> (any CloudProvider)? {
         allProviders.first { $0.modelProvider == modelProvider }

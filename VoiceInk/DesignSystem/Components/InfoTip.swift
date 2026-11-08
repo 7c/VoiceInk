@@ -24,27 +24,12 @@ struct InfoTip: View {
             .contentShape(Rectangle())
             .popover(isPresented: $isShowingTip) {
                 VStack(alignment: .leading, spacing: 0) {
-                    if learnMoreLink != nil {
-                        (Text(message)
-                            .foregroundColor(.secondary)
-                            + Text(" ")
-                            + Text("Learn more")
-                            .foregroundColor(AppTheme.Accent.primary))
-                            .font(.callout)
-                    } else {
-                        Text(message)
-                            .font(.callout)
-                            .foregroundColor(.secondary)
-                    }
+                    Text(message).font(.callout).foregroundColor(.secondary)
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: width, alignment: .leading)
                 .padding(14)
-                .onTapGesture {
-                    if let url = learnMoreLink {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+
             }
             .onTapGesture {
                 isShowingTip.toggle()

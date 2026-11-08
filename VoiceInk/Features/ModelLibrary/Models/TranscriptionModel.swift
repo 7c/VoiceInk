@@ -239,7 +239,7 @@ struct WhisperModel: TranscriptionModel {
     let provider: ModelProvider = .whisper
 
     var downloadURL: String {
-        "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(filename)"
+        ""
     }
 
     var filename: String {

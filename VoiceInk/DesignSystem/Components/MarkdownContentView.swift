@@ -1,4 +1,3 @@
-import MarkdownUI
 import SwiftUI
 
 struct MarkdownContentView: View {
@@ -20,12 +19,9 @@ struct MarkdownContentView: View {
     }
 
     var body: some View {
-        Markdown(text)
-            .markdownTheme(.basic)
-            .markdownTextStyle {
-                FontSize(fontSize)
-                ForegroundColor(foregroundColor)
-            }
+        Text(text)
+            .font(.system(size: fontSize))
+            .foregroundStyle(foregroundColor)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: alignment)
     }

@@ -1,62 +1,66 @@
-# Building VoiceInk
+# Building the offline edition
 
-## Requirements
+Install Xcode 26 or newer and select it with `xcode-select`. No package manager, third-party source, downloaded framework, API key, developer membership, or model download is needed.
 
-- macOS 15.0 or later
-- Xcode with Swift 6.2 or later and Command Line Tools
-- Git
+Run commands from the repository root. Plain `make` prints help and does not build anything.
 
-## Local Build
+| Command | Action |
+| --- | --- |
+| `make` / `make help` | Grouped command list with terminal colors |
+| `make doctor` | Full local readiness report with PASS / WARN / FAIL results |
+| `make check` / `make healthcheck` | Fast OS, Xcode, SDK, compiler, and tool checks |
+| `make build` / `make local` / `make all` | Build the Release app with ad-hoc signing |
+| `make run` / `make dev` | Build and open the app |
+| `make install` | Build and install `/Applications/VoiceInk.app` |
+| `make open-installed` | Open the installed copy |
+| `make kill-installed` | Stop only the installed copy; force-kill after 5 seconds |
+| `make reset-permissions` | Reset macOS privacy decisions for `local.VoiceInk.Offline` only |
+| `make privacy-check` | Scan tracked and non-ignored files for common publication risks |
+| `make open` | Open the existing build without rebuilding |
+| `make status` | Show the build, running PIDs, and open IP sockets |
+| `make logs` | Show the last five minutes of local VoiceInk logs |
+| `make test` | Developer-command tests plus dependency, offline, and binary audits |
+| `make test-tools` | Test help, colors, diagnostics, process matching, and safe cleanup |
+| `make test-speech` | Transcribe a generated local speech fixture; no microphone capture |
+| `make clean` | Remove only `.local-build`; refuse if that app is running or the path is a symlink |
+| `make rebuild` | Clean, then build, sequentially even with parallel make |
 
-```bash
-git clone https://github.com/Beingpax/VoiceInk.git
-cd VoiceInk
-make local
-open ~/Downloads/VoiceInk.app
+Colors are automatic in terminals and disabled when redirected. Use `make COLOR=always`, `make COLOR=never`, or `NO_COLOR=1 make`. `PYTHON=/path/to/python3` selects the Python interpreter for diagnostics; help itself needs only awk.
+
+`doctor` checks macOS/Xcode versions, Xcode first-launch readiness, SDK/compiler/tools, write access and free space, required project files, dependency removal, kernel network denial and fail-closed startup, app architecture/signature/entitlements/freshness, running app sockets, installed speech languages, the selected language, default microphone availability, saved primary shortcut, and onboarding. It never downloads anything, starts recording, accepts a license, requests privacy access, or changes settings. Native probes are compiled in temporary directories and run with the production network guard.
+
+Failures return exit status 1; warnings return 0. A missing build or closed app is a warning. App-specific Microphone/Accessibility permissions, shortcut conflicts with other apps, selected-device overrides, and actual pasting into a focused field require an interactive check; `doctor` explicitly reports these limits. It does not claim to verify every possible OS or application condition. `make test-speech` separately exercises transcription with already installed en-US assets and the Samantha voice.
+
+If `make run` finds an existing instance, it opens that instance. After rebuilding, quit VoiceInk and use `make open` to load the new executable; the command does not interrupt a recording automatically.
+
+Open `VoiceInk.xcodeproj` to build from Xcode. Both configurations include the same offline guard and have no package dependencies. The application remains offline when opened directly from Finder. Signing entitlements grant microphone and Apple Events access, not networking or iCloud. The process sandbox is installed unconditionally by `OfflineNetworkGuard.c`.
+
+The underlying `sandbox_init` API is deprecated by Apple, but is available on the tested macOS 26 host. Failure to apply it prevents launch; there is no online fallback. Re-run `make test` after macOS or Xcode upgrades.
+
+## Before publishing
+
+Run `make privacy-check` to scan tracked and non-ignored files. After staging, run `python3 scripts/check-public-repo.py --staged` to check the exact index contents. The check reports file names, line numbers, and finding categories without printing secret values. It checks common credential formats, private absolute paths, unexpected emails, signing teams, and private/generated artifacts; it is not a comprehensive PII detector.
+
+Build products, recordings, transcripts, local databases, environment files, signing keys, logs, and Xcode user settings are ignored. Ignoring a file does not remove it from existing commits. Review newly added media and Git history separately, and use a GitHub no-reply commit address if you do not want to publish your email. Upstream attribution and public contributor history are retained.
+
+## Installing and managing startup
+
+Run `make install` to build, verify, and copy the app into `/Applications/VoiceInk.app`. The copy is staged and signature-checked before replacement; failed installation restores the previous offline app. The command refuses to overwrite a different VoiceInk edition, follow an app symlink, or replace the installed app while it is running. Quit that copy before upgrading. It preserves app settings and history and does not enable startup automatically.
+
+For a per-user installation, use `make install INSTALL_DIR="$HOME/Applications"`. Pass the same `INSTALL_DIR` to `make open-installed` and `make kill-installed` when using a custom destination. No automatic sudo or privilege escalation is used.
+
+`make kill-installed` sends SIGTERM to the exact installed executable, waits up to five seconds, then sends SIGKILL to any surviving original instances. It succeeds when the app is already stopped, refuses other app bundles and app symlinks, and leaves development copies alone. An active recording may be lost; saved settings and history are retained. To update and reopen, run `make kill-installed && make install && make open-installed` (sequentially, not with `make -j`).
+
+Open the installed copy and use **Settings → General → Launch at Login** to opt in or opt out. If macOS requires approval, the app shows **Open Login Items**. Failures are displayed in Settings, and returning from System Settings refreshes the toggle. Enabling startup opens VoiceInk at login; it does not start recording.
+
+`make reset-permissions` runs `tccutil reset All local.VoiceInk.Offline` for the current user. Quit and reopen VoiceInk afterward, then allow Microphone and Accessibility again as needed. Check Input Monitoring if shortcuts do not respond. This resets privacy grants and denials only; it does not delete transcripts/settings, disable Launch at Login, or reset permissions for unrelated apps. The automated tests mock this action; they never reset real permissions.
+
+## Native speech smoke test
+
+This uses the production Apple Speech source and an already installed en-US language. It synthesizes a short local fixture using the installed Samantha voice, then checks transcription and missing-language handling. It never requests a model or voice download.
+
+```sh
+make test-speech
 ```
 
-`make local` prepares `whisper.xcframework` in `~/VoiceInk-Dependencies`, builds Release in `.local-build`, and copies `VoiceInk.app` to `~/Downloads`.
-
-It uses `LocalBuild.xcconfig`, `VoiceInk.local.entitlements`, and the `LOCAL_BUILD` Swift flag. Without an override, it uses the only available Apple Development identity or falls back to ad-hoc signing when none or multiple are found.
-
-Choose an identity explicitly:
-
-```bash
-make local LOCAL_CODESIGN_IDENTITY="<SHA or name>"
-```
-
-Force ad-hoc signing:
-
-```bash
-make local LOCAL_CODESIGN_IDENTITY=-
-```
-
-Local builds do not include iCloud dictionary sync or automatic updates. Ad-hoc builds may require macOS permissions again after rebuilding.
-
-## Other Commands
-
-- `make check` — verify required tools
-- `make whisper` — prepare `whisper.xcframework`
-- `make build` — build the standard Debug configuration
-- `make dev` — build and launch `VoiceInk Dev.app`
-- `make run` — launch `~/Downloads/VoiceInk.app`, or the first app found in DerivedData
-- `make release` — create the signed release package
-- `make release-setup` — configure release notarization credentials
-- `make clean` — remove `~/VoiceInk-Dependencies`
-- `make help` — list all commands
-
-## Build with Xcode
-
-```bash
-make setup
-open VoiceInk.xcodeproj
-```
-
-Select the `VoiceInk` scheme. Run builds `VoiceInk Dev.app`; Archive uses Release. `LOCAL_BUILD` applies only through `make local`.
-
-## Troubleshooting
-
-- Run `make check` to verify the required tools.
-- Run `make whisper` if the framework is missing.
-- If several Apple Development identities exist, set `LOCAL_CODESIGN_IDENTITY` explicitly.
-- For additional help, open a [GitHub issue](https://github.com/Beingpax/VoiceInk/issues).
+Microphone recording and global paste still require the user's macOS privacy permissions. The smoke test does not access the microphone or other apps.

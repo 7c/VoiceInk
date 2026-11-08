@@ -3,7 +3,7 @@ name: Bug report
 about: Create a report to help us improve
 title: ''
 labels: bug
-assignees: Beingpax
+assignees: ''
 
 ---
 
@@ -23,7 +23,7 @@ If applicable, add screenshots to help explain your problem.
 
 > **📋 IMPORTANT: System Information**
 >
-> Copy the system information from VoiceInk's **Dashboard tab** (there's a copy button 📋 next to the "Feedback or Issues?" button) and paste it here. This includes all technical details needed for debugging.
+> Include only the system details needed to reproduce the issue. Before posting publicly, remove names, email addresses, local paths, device identifiers, credentials, and dictated text from diagnostics, screenshots, and logs.
 
 ```
 Paste the copied system information here (includes VoiceInk version, macOS version, hardware specs, transcription settings, and all configuration details)

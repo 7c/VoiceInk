@@ -9,6 +9,14 @@ final class LaunchAtLoginManager: ObservableObject {
 
     @Published private(set) var isEnabled = false
     @Published private(set) var isUpdating = false
+    @Published private(set) var requiresApproval = false
+    @Published private(set) var lastError: String?
+
+    var isRequested: Bool { isEnabled || requiresApproval }
+
+    func openLoginItemsSettings() {
+        SMAppService.openSystemSettingsLoginItems()
+    }
 
     private let logger = Logger(subsystem: "com.prakashjoshipax.voiceink", category: "LaunchAtLogin")
     private var isRefreshing = false
@@ -27,16 +35,19 @@ final class LaunchAtLoginManager: ObservableObject {
         let generation = operationGeneration
 
         Task {
-            let enabled = await Self.readEnabledStatus()
+            let state = await Self.readRegistrationState()
             isRefreshing = false
 
             guard generation == operationGeneration else { return }
-            isEnabled = enabled
+            isEnabled = state.isEnabled
+            requiresApproval = state.requiresApproval
         }
     }
 
     func setEnabled(_ enabled: Bool) {
         operationGeneration += 1
+        lastError = nil
+        requiresApproval = false
         isEnabled = enabled
         pendingEnabledState = enabled
 
@@ -59,13 +70,14 @@ final class LaunchAtLoginManager: ObservableObject {
                 continue
             }
 
-            let enabled = await Self.readEnabledStatus()
+            let state = await Self.readRegistrationState()
             guard generation == operationGeneration, updateTask == nil else {
                 continue
             }
 
-            isEnabled = enabled
-            return enabled
+            isEnabled = state.isEnabled
+            requiresApproval = state.requiresApproval
+            return isRequested
         }
     }
 
@@ -76,6 +88,8 @@ final class LaunchAtLoginManager: ObservableObject {
 
             if pendingEnabledState == nil {
                 isEnabled = result.isEnabled
+                requiresApproval = result.requiresApproval
+                lastError = result.errorDescription
             }
 
             if let errorDescription = result.errorDescription {
@@ -89,9 +103,11 @@ final class LaunchAtLoginManager: ObservableObject {
         updateTask = nil
     }
 
-    private nonisolated static func readEnabledStatus() async -> Bool {
+    private nonisolated static func readRegistrationState() async -> UpdateResult {
         await Task.detached(priority: .utility) {
-            SMAppService.mainApp.status == .enabled
+            let status = SMAppService.mainApp.status
+            return UpdateResult(isEnabled: status == .enabled, requiresApproval: status == .requiresApproval,
+                                errorDescription: nil)
         }.value
     }
 
@@ -101,7 +117,7 @@ final class LaunchAtLoginManager: ObservableObject {
 
             do {
                 if enabled {
-                    if service.status != .enabled {
+                    if service.status != .enabled && service.status != .requiresApproval {
                         try service.register()
                     }
                 } else if service.status != .notRegistered {
@@ -110,12 +126,14 @@ final class LaunchAtLoginManager: ObservableObject {
             } catch {
                 return UpdateResult(
                     isEnabled: service.status == .enabled,
+                    requiresApproval: service.status == .requiresApproval,
                     errorDescription: error.localizedDescription
                 )
             }
 
             return UpdateResult(
                 isEnabled: service.status == .enabled,
+                requiresApproval: service.status == .requiresApproval,
                 errorDescription: nil
             )
         }.value
@@ -123,6 +141,7 @@ final class LaunchAtLoginManager: ObservableObject {
 
     private struct UpdateResult: Sendable {
         let isEnabled: Bool
+        let requiresApproval: Bool
         let errorDescription: String?
     }
 }

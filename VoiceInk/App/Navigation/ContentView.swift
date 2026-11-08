@@ -4,13 +4,13 @@ import SwiftUI
 enum ViewType: String, CaseIterable, Identifiable {
     case dashboard = "Dashboard"
     case modes = "Modes"
-    case models = "AI Models"
+    case models = "Speech Model"
     case transcribeAudio = "Transcribe Audio"
     case history = "History"
     case audio = "Audio"
     case dictionary = "Dictionary"
     case settings = "Settings"
-    case license = "VoiceInk Pro"
+    case license = "Offline Edition"
 
     var id: String { rawValue }
 }

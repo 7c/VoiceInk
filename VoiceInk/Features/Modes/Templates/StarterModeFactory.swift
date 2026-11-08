@@ -2,15 +2,15 @@ import AppKit
 import Foundation
 
 enum StarterModeFactory {
-    static let defaultTranscriptionModelName = "parakeet-tdt-0.6b-v3"
+    static let defaultTranscriptionModelName = "apple-speech"
 
     static func install(
         kinds: [StarterModeKind],
         provider: AIProvider,
         modelName: String?,
         transcriptionModelName: String = defaultTranscriptionModelName,
-        isRealtimeTranscriptionEnabled: Bool = true,
-        selectedLanguage: String = "auto",
+        isRealtimeTranscriptionEnabled: Bool = false,
+        selectedLanguage: String = "en-US",
         installedApps: [InstalledAppInfo]? = nil
     ) {
         let manager = ModeManager.shared
@@ -79,7 +79,7 @@ enum StarterModeFactory {
             appConfigs: nil,
             urlConfigs: nil,
             triggerGroups: triggerGroups(for: template.kind, installedApps: installedApps),
-            isAIEnhancementEnabled: template.usesAIEnhancement,
+            isAIEnhancementEnabled: false,
             selectedPrompt: template.promptId?.uuidString,
             selectedTranscriptionModelName: transcriptionModelName,
             isRealtimeTranscriptionEnabled: isRealtimeTranscriptionEnabled,

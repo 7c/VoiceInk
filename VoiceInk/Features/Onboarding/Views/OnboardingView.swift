@@ -1,311 +1,38 @@
-import AppKit
 import SwiftUI
-
+import AVFoundation
+import AppKit
 struct OnboardingView: View {
     @Binding var hasCompletedOnboardingV2: Bool
-    @EnvironmentObject var fluidAudioModelManager: FluidAudioModelManager
-    @EnvironmentObject var transcriptionModelManager: TranscriptionModelManager
-    @EnvironmentObject var aiService: AIService
-    @EnvironmentObject var enhancementService: AIEnhancementService
-    @StateObject private var coordinator = OnboardingCoordinator()
-    let contentMaxWidth: CGFloat = 560
-
+    @State private var microphoneAllowed = AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+    @AppStorage("SelectedLanguage") private var language = "en-US"
     var body: some View {
-        let isTranscriptionModelDownloaded = coordinator.isTranscriptionModelDownloaded(
-            using: fluidAudioModelManager
-        )
-        let isTranscriptionSetupReady = coordinator.isTranscriptionSetupReady(
-            isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-        )
-
-        ZStack(alignment: .bottomLeading) {
-            OnboardingBackground()
-
-            Group {
-                switch coordinator.stage {
-                case .permissions:
-                    OnboardingPermissionsScreen(
-                        contentMaxWidth: contentMaxWidth,
-                        isComplete: coordinator.requiredPermissionsGranted,
-                        activePermission: coordinator.activePermission,
-                        hasRequestedScreenRecording: coordinator.hasRequestedScreenRecording,
-                        stepNumber: { coordinator.permissions.stepNumber(for: $0) },
-                        status: { coordinator.permissions.status(for: $0) },
-                        isLocked: { coordinator.permissions.isLocked($0) },
-                        actionTitle: { coordinator.permissions.actionTitle(for: $0) },
-                        onSelect: coordinator.permissions.setActivePermission,
-                        onAction: coordinator.permissions.performAction,
-                        onQuit: {
-                            NSApplication.shared.terminate(nil)
-                        },
-                        onRecheck: coordinator.permissions.refreshPermissionStatuses,
-                        onContinue: coordinator.flow.goToMicrophoneStep
-                    )
-                    .transition(.opacity)
-                case .microphone:
-                    OnboardingMicrophoneScreen(
-                        contentMaxWidth: contentMaxWidth,
-                        onBack: coordinator.flow.goToPermissionsStep,
-                        onContinue: coordinator.flow.goToModelStep
-                    )
-                    .transition(.opacity)
-                case .model:
-                    OnboardingModelScreen(
-                        contentMaxWidth: contentMaxWidth,
-                        localModel: coordinator.requiredTranscriptionModel,
-                        setupKind: coordinator.transcriptionSetupKind,
-                        providerOptions: coordinator.onboardingTranscriptionProviderOptions,
-                        selectedProviderKey: coordinator.selectedOnboardingTranscriptionProviderKeyBinding(),
-                        isLocalDownloaded: isTranscriptionModelDownloaded,
-                        isLocalDownloading: coordinator.requiredTranscriptionModel.map {
-                            fluidAudioModelManager.isFluidAudioModelDownloading($0)
-                        } ?? false,
-                        localDownloadStatus: coordinator.requiredTranscriptionModel.flatMap {
-                            fluidAudioModelManager.downloadStatus(for: $0)
-                        },
-                        isSetupReady: isTranscriptionSetupReady,
-                        onSelectSetupKind: coordinator.flow.selectOnboardingTranscriptionSetup,
-                        onDownload: {
-                            coordinator.flow.downloadTranscriptionModel(
-                                $0,
-                                modelManager: fluidAudioModelManager
-                            )
-                        },
-                        onCancelDownload: {
-                            fluidAudioModelManager.cancelDownload($0)
-                        },
-                        onVerificationChanged: coordinator.flow.refreshTranscriptionSetupVerification,
-                        onBack: coordinator.flow.goToMicrophoneStep,
-                        onContinue: {
-                            coordinator.flow.goToAPIStep(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady,
-                                aiService: aiService
-                            )
-                        }
-                    )
-                    .transition(.opacity)
-                case .api:
-                    OnboardingAPIScreen(
-                        aiService: aiService,
-                        contentMaxWidth: contentMaxWidth,
-                        providerOptions: coordinator.onboardingProviderOptions,
-                        selectedProvider: coordinator.selectedOnboardingProviderBinding(aiService: aiService),
-                        isSelectedProviderVerified: coordinator.isSelectedAPIProviderVerified,
-                        canContinue: coordinator.isReadyForExperience(
-                            isTranscriptionSetupReady: isTranscriptionSetupReady
-                        ),
-                        isShowingSkipWarning: $coordinator.isShowingSkipAPISetupWarning,
-                        onVerificationChanged: coordinator.flow.refreshAPIVerification,
-                        onBack: coordinator.flow.goBackToModelStep,
-                        onContinue: {
-                            coordinator.flow.goToExperienceStep(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady,
-                                enhancementService: enhancementService
-                            )
-                        },
-                        onRequestSkip: coordinator.flow.requestSkipAPISetup,
-                        onConfirmSkip: {
-                            coordinator.flow.skipAPISetupAndContinue(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady,
-                                enhancementService: enhancementService
-                            )
-                        }
-                    )
-                    .transition(.opacity)
-                case .experience:
-                    OnboardingExperienceScreen(
-                        step: coordinator.experienceStep,
-                        isInIntroPhase: coordinator.isShowingExperienceIntroPhase,
-                        shortcutAction: coordinator.experienceShortcutAction,
-                        hasShortcut: coordinator.hasExperienceModeShortcut,
-                        text: coordinator.currentExperienceText,
-                        isLastStep: coordinator.isLastExperienceStep,
-                        isReady: coordinator.isCurrentExperienceReady(
-                            isTranscriptionSetupReady: isTranscriptionSetupReady
-                        ),
-                        isComplete: coordinator.isCurrentExperienceComplete,
-                        onBackFromIntro: {
-                            coordinator.flow.goToPreviousExperienceStep(enhancementService: enhancementService)
-                        },
-                        onContinueIntro: coordinator.flow.goToExperiencePracticePhase,
-                        onBackFromPractice: {
-                            coordinator.flow.goBackFromExperiencePractice(enhancementService: enhancementService)
-                        },
-                        onAdvance: {
-                            coordinator.flow.advanceExperienceStep(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady,
-                                enhancementService: enhancementService
-                            )
-                        },
-                        onShortcutChanged: {
-                            coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
-                        },
-                        onAppear: coordinator.flow.activateExperienceModeForDemo
-                    )
-                    .transition(.opacity)
-                case .contextAwareness:
-                    OnboardingContextAwarenessScreen(
-                        contentMaxWidth: contentMaxWidth,
-                        onBack: {
-                            coordinator.flow.goToPreviousContextAwarenessStep(
-                                enhancementService: enhancementService
-                            )
-                        },
-                        onContinue: {
-                            coordinator.flow.continueFromContextAwarenessStep(
-                                enhancementService: enhancementService
-                            )
-                        }
-                    )
-                    .transition(.opacity)
-                case .trust:
-                    OnboardingTrustScreen(
-                        contentMaxWidth: contentMaxWidth,
-                        onBack: {
-                            coordinator.flow.goToPreviousTrustStep(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady,
-                                enhancementService: enhancementService
-                            )
-                        },
-                        onContinue: {
-                            #if LOCAL_BUILD
-                                coordinator.flow.completeOnboarding(
-                                    isTranscriptionSetupReady: isTranscriptionSetupReady
-                                ) {
-                                    hasCompletedOnboardingV2 = true
-                                }
-                            #else
-                                coordinator.flow.goToLicenseStep(
-                                    isTranscriptionSetupReady: isTranscriptionSetupReady
-                                )
-                            #endif
-                        }
-                    )
-                    .transition(.opacity)
-                case .license:
-                    OnboardingLicenseScreen(
-                        licenseViewModel: coordinator.licenseViewModel,
-                        licenseKeyDraft: $coordinator.licenseKeyDraft,
-                        onBack: {
-                            coordinator.flow.goToPreviousLicenseStep(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady
-                            )
-                        },
-                        onPurchase: {
-                            coordinator.licenseViewModel.openPurchaseLink()
-                        },
-                        onStartTrial: {
-                            coordinator.flow.startLicenseTrial(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady
-                            ) {
-                                hasCompletedOnboardingV2 = true
-                            }
-                        },
-                        onActivate: coordinator.flow.activateLicense,
-                        onFinish: {
-                            coordinator.flow.completeOnboarding(
-                                isTranscriptionSetupReady: isTranscriptionSetupReady
-                            ) {
-                                hasCompletedOnboardingV2 = true
-                            }
-                        }
-                    )
-                    .transition(.opacity)
+        VStack(alignment: .leading, spacing: 24) {
+            Label("VoiceInk Offline", systemImage: "mic.fill").font(.largeTitle.bold())
+            Text("Record, transcribe, and keep your history on this Mac.").font(.title2)
+            Text("This edition uses only built-in macOS frameworks. Network connections, cloud providers, updates, AI enhancement, and model downloads are removed.")
+                .foregroundStyle(.secondary)
+            Button(microphoneAllowed ? "Microphone access granted" : "Allow Microphone") {
+                Task { microphoneAllowed = await AVCaptureDevice.requestAccess(for: .audio) }
+            }.disabled(microphoneAllowed)
+            Button("Open Accessibility Settings") {
+                OfflineWorkspace.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+            }
+            Text("Accessibility access enables the recording shortcut and pasting into other apps.").font(.caption)
+            Picker("Transcription language", selection: $language) {
+                ForEach(LanguageDictionary.appleNative.keys.sorted(), id: \.self) { code in
+                    Text(LanguageDictionary.appleNative[code] ?? code).tag(code)
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            OnboardingProgressBadge(
-                currentStep: coordinator.currentStepNumber,
-                totalSteps: coordinator.totalStepCount
-            )
-            .padding(.leading, 28)
-            .padding(.bottom, 26)
-            .allowsHitTesting(false)
-
-        }
-        .frame(minWidth: 820, minHeight: 680)
-        .overlay(alignment: .topTrailing) {
-            if showsSkipButton && coordinator.requiredPermissionsGranted {
-                Button("Skip") {
-                    coordinator.flow.skipOnboarding {
-                        hasCompletedOnboardingV2 = true
-                    }
+            NativeAppleLanguageAssetControl(localeIdentifier: language)
+            Text("A language must already be installed by macOS. This app does not install missing assets.").font(.caption)
+            Button("Open VoiceInk") {
+                if ModeManager.shared.configurations.isEmpty {
+                    StarterModeFactory.install(kinds: [.clean], provider: .voiceInkRefine, modelName: nil,
+                        transcriptionModelName: "apple-speech", isRealtimeTranscriptionEnabled: false,
+                        selectedLanguage: language)
                 }
-                .buttonStyle(.borderless)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(AppTheme.Action.secondaryForeground)
-                .padding(8)
-                .contentShape(Rectangle())
-                .help("Skip the remaining onboarding steps")
-                .accessibilityLabel("Skip onboarding")
-                .padding(.trailing, 28)
-                .padding(.top, 20)
-            }
-        }
-        .animation(.easeInOut(duration: 0.22), value: coordinator.stage)
-        .onAppear {
-            coordinator.flow.ensureDefaultOnboardingTranscriptionProvider()
-            coordinator.flow.refreshTranscriptionSetupVerification()
-            coordinator.flow.ensureDefaultOnboardingProvider()
-            coordinator.permissions.refreshPermissionStatuses()
-            coordinator.flow.refreshAPIVerification()
-            coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
-            let refreshedTranscriptionSetupReady = coordinator.isTranscriptionSetupReady(
-                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-            )
-            coordinator.flow.reconcileStage(
-                isTranscriptionSetupReady: refreshedTranscriptionSetupReady,
-                enhancementService: enhancementService
-            )
-        }
-        .onDisappear {
-            coordinator.permissions.cancelRefreshTask()
-        }
-        .onReceive(LifecycleObserver.shared.publisher(for: .applicationDidBecomeActive)) { _ in
-            coordinator.permissions.refreshPermissionStatuses()
-            coordinator.flow.refreshTranscriptionSetupVerification()
-            let refreshedTranscriptionSetupReady = coordinator.isTranscriptionSetupReady(
-                isTranscriptionModelDownloaded: isTranscriptionModelDownloaded
-            )
-            coordinator.flow.reconcileStage(
-                isTranscriptionSetupReady: refreshedTranscriptionSetupReady,
-                enhancementService: enhancementService
-            )
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .aiProviderKeyChanged)) { _ in
-            coordinator.flow.refreshAPIVerification()
-            coordinator.flow.refreshTranscriptionSetupVerification()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: ShortcutStore.shortcutDidChange)) { notification in
-            guard let action = notification.object as? ShortcutAction,
-                action == coordinator.experienceShortcutAction
-            else {
-                return
-            }
-
-            coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .modeConfigurationsDidChange)) { _ in
-            coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
-        }
-        .onChange(of: coordinator.stage) { _, _ in
-            coordinator.flow.activateExperienceModeForDemo()
-            coordinator.flow.refreshExperienceModeState(enhancementService: enhancementService)
-        }
+                hasCompletedOnboardingV2 = true
+            }.buttonStyle(.borderedProminent)
+        }.padding(48).frame(maxWidth: 720, alignment: .leading)
     }
-
-    private var showsSkipButton: Bool {
-        switch coordinator.stage {
-        case .permissions, .microphone, .model, .api:
-            return false
-        case .experience, .contextAwareness, .trust, .license:
-            return true
-        }
-    }
-
-}
-
-#Preview {
-    OnboardingView(hasCompletedOnboardingV2: .constant(false))
 }

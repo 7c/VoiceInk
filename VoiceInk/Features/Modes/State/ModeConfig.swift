@@ -23,7 +23,7 @@ enum ModeOutputMode: String, Codable, CaseIterable {
     }
 
     static func choices(canRespond: Bool) -> [ModeOutputMode] {
-        canRespond ? [.paste, .respond, .customCommand] : [.paste, .customCommand]
+        [.paste]
     }
 }
 

@@ -190,7 +190,9 @@ class ImportExportService {
             finishAndSendKey: FinishAndSendSettings.selectedKey.rawValue,
             isAutoLearnDictionaryEnabled: AutoLearnSettings.isEnabled,
             autoLearnMinimumCorrections: AutoLearnSettings.minimumCorrections,
-            autoLearnAIReviewMode: AutoLearnSettings.aiReviewMode.rawValue
+            autoLearnAIReviewMode: AutoLearnSettings.aiReviewMode.rawValue,
+            promptSnippetsEnabled: UserDefaults.standard.bool(forKey: PromptSnippet.enabledKey),
+            promptSnippets: PromptSnippetStore.shared.snippets
         )
 
         let exportedSettings = BackupFile(
@@ -408,7 +410,7 @@ class ImportExportService {
                 NotificationCenter.default.post(
                     name: .navigateToDestination,
                     object: nil,
-                    userInfo: ["destination": "AI Models"]
+                    userInfo: ["destination": "Speech Model"]
                 )
             }
         }

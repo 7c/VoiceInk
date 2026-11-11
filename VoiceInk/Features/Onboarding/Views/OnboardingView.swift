@@ -9,7 +9,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 24) {
             Label("VoiceInk Offline", systemImage: "mic.fill").font(.largeTitle.bold())
             Text("Record, transcribe, and keep your history on this Mac.").font(.title2)
-            Text("This edition uses only built-in macOS frameworks. Network connections, cloud providers, updates, AI enhancement, and model downloads are removed.")
+            Text("This edition uses only built-in macOS frameworks. Network connections, cloud providers, updates, AI enhancement, and third-party model downloads are removed.")
                 .foregroundStyle(.secondary)
             Button(microphoneAllowed ? "Microphone access granted" : "Allow Microphone") {
                 Task { microphoneAllowed = await AVCaptureDevice.requestAccess(for: .audio) }
@@ -24,7 +24,7 @@ struct OnboardingView: View {
                 }
             }
             NativeAppleLanguageAssetControl(localeIdentifier: language)
-            Text("A language must already be installed by macOS. This app does not install missing assets.").font(.caption)
+            Text("If the language is not installed, choose Download. macOS fetches it from Apple; VoiceInk itself stays offline.").font(.caption)
             Button("Open VoiceInk") {
                 if ModeManager.shared.configurations.isEmpty {
                     StarterModeFactory.install(kinds: [.clean], provider: .voiceInkRefine, modelName: nil,

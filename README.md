@@ -4,18 +4,19 @@ A local-only edition of VoiceInk for macOS. The app uses Apple frameworks and th
 
 ## Changes in this fork
 
-- **Offline transcription:** uses Apple Speech with language assets already installed on the Mac. Removed third-party packages, bundled model runtimes, model downloads, cloud providers, licensing requests, updates, and remote announcements.
+- **Offline transcription:** uses Apple Speech with language assets installed on the Mac. Removed third-party packages, bundled model runtimes, third-party model downloads, cloud providers, licensing requests, updates, and remote announcements.
+- **Language downloads on request (2.26.1):** a missing Apple Speech language, such as German, can be downloaded from the Speech Model screen. macOS fetches it from Apple in its own system services; the app process stays network-denied.
 - **Network restriction:** the app installs a process sandbox that denies incoming and outgoing networking, including loopback, and refuses to start if that restriction fails. This applies to VoiceInk and its children, not the rest of macOS or applications receiving pasted text.
 - **Prompt Snippets:** optional, editable voice commands such as “insert prompt code review” paste a saved prompt. Includes three starters, a command preview, local storage, and settings backup support.
 - **Launch at Login:** opt-in startup in Settings, with approval guidance and visible registration errors. Launching the app does not start recording.
 - **Local developer commands:** a sectioned, colored `make` help screen, readiness checks with `make doctor`, build/run commands, installation to Applications, `kill-installed`, and an app-scoped permission reset.
 - **Verification and publication checks:** tests for offline enforcement, local speech, prompt snippets, and developer commands; `make privacy-check` checks publishable files for common secrets, private paths, and generated artifacts.
 
-AI enhancement and assistant responses are unavailable in this edition. System frameworks and installed Apple Speech assets are still required. Original upstream attribution and Git history are preserved.
+AI enhancement and assistant responses are unavailable in this edition. System frameworks and an installed Apple Speech language are still required. Original upstream attribution and Git history are preserved.
 
 ## Build and run
 
-Requires Xcode 26 or newer. Transcription requires macOS 26 and an Apple Speech language already installed on the Mac.
+Requires Xcode 26 or newer. Transcription requires macOS 26 and an Apple Speech language installed on the Mac; a missing one can be downloaded from the app.
 
 ```sh
 make          # Show grouped, colored help
@@ -30,7 +31,7 @@ Use `make open-installed` to open the Applications copy. Enable auto start on de
 
 Use `make kill-installed` to stop the Applications copy (an active recording may be lost). To upgrade and reopen: `make kill-installed && make install && make open-installed`. These commands also accept `INSTALL_DIR` for a custom installation folder.
 
-Allow microphone access to record. Accessibility access enables global shortcuts and pasting into other apps. On first launch, choose a language and open VoiceInk; a local dictation mode is created automatically. Use the Speech Model screen to check whether a language is installed. Missing language assets produce an error; the app never downloads them or falls back to a server.
+Allow microphone access to record. Accessibility access enables global shortcuts and pasting into other apps. On first launch, choose a language and open VoiceInk; a local dictation mode is created automatically. Use the Speech Model screen to check whether a language is installed, and choose **Download** to install a missing one (this step needs an internet connection). Dictating in a language that is not installed produces an error; the app never downloads a language on its own and never falls back to a server.
 
 ## Offline behavior
 
@@ -40,7 +41,7 @@ Allow microphone access to record. Accessibility access enables global shortcuts
 - Recording, Apple Speech transcription, local audio import, history, dictionary, modes, shortcuts, and local text processing remain. AI enhancement and assistant responses are unavailable. Markdown uses plain text; automatic media pause is unavailable after removal of MediaRemoteAdapter.
 - Legacy provider names and some unavailable service interfaces remain only to keep saved settings/history compatible; no external implementation or dependency is included.
 
-The process restriction does not turn off networking for macOS or unrelated applications. Apple Speech uses installed OS assets through local system services; this app never asks those services to install assets.
+The process restriction does not turn off networking for macOS or unrelated applications. Apple Speech uses installed OS assets through local system services. When you choose **Download** for a language, the app asks macOS to install it; macOS downloads the assets from Apple in its own services, while the app process itself remains network-denied. Nothing is downloaded without that explicit request, and audio is never sent anywhere.
 
 ## Verification
 
@@ -48,7 +49,7 @@ The process restriction does not turn off networking for macOS or unrelated appl
 make test
 ```
 
-This tests the developer commands, audits the project and source, tests kernel denial of TCP/IPv6 networking using the production guard, tests abort-on-guard-failure, and checks the signed app's linked libraries when built. See [BUILDING.md](BUILDING.md) for the local speech smoke test.
+This tests the developer commands, audits the project and source, tests kernel denial of TCP/IPv6 networking using the production guard, tests abort-on-guard-failure, and checks the signed app's linked libraries when built. See [BUILDING.md](BUILDING.md) for the local speech smoke test and for `make test-language`, which checks that macOS can download a language while the process stays network-denied.
 
 Original VoiceInk attribution and license are preserved in [LICENSE](LICENSE).
 

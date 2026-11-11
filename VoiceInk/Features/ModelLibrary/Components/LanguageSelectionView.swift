@@ -63,11 +63,8 @@ struct LanguageSelectionView: View {
     }
 
     private var nativeAppleAssetControl: some View {
-        NativeAppleLanguageAssetControl(
-            localeIdentifier: selectedLanguage,
-            isVisible: true
-        )
-        .layoutPriority(1)
+        NativeAppleLanguageAssetControl(localeIdentifier: selectedLanguage)
+            .layoutPriority(1)
     }
 
     var body: some View {

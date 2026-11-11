@@ -9,7 +9,7 @@ PYTHON ?= python3
 COLOR ?= auto
 export COLOR
 
-.PHONY: help doctor check healthcheck build local all rebuild run dev open status logs test test-tools test-snippets test-speech privacy-check clean install open-installed kill-installed reset-permissions
+.PHONY: help doctor check healthcheck build local all rebuild run dev open status logs test test-tools test-snippets test-speech test-language privacy-check clean install open-installed kill-installed reset-permissions
 
 ##@ Help & diagnostics
 help: ## Show this help (also the default for plain make)
@@ -81,6 +81,9 @@ test-snippets: ## Test offline prompt expansion and saved snippet behavior
 
 test-speech: check ## Test native transcription using installed English assets and a local voice
 	@"$(PYTHON)" -u "$(ROOT)/scripts/dev.py" test-speech
+
+test-language: check ## Have macOS download one language with the network guard on: LANGUAGE=de-DE
+	@"$(PYTHON)" -u "$(ROOT)/scripts/dev.py" test-language --language "$(LANGUAGE)"
 
 ##@ Housekeeping
 clean: ## Remove only .local-build; keep source, app settings, and transcription history

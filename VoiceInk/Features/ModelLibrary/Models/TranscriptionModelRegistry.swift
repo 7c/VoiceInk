@@ -2,7 +2,7 @@ import Foundation
 enum TranscriptionModelRegistry {
     static var models: [any TranscriptionModel] { [NativeAppleModel(
         name: "apple-speech", displayName: "Apple Speech (Offline)",
-        description: "Transcribes on this Mac using an already installed Apple Speech language.",
+        description: "Transcribes on this Mac using an installed Apple Speech language. Missing languages can be downloaded through macOS.",
         isMultilingualModel: true, supportedLanguages: LanguageDictionary.appleNative)] }
     static func model(forSelectionKey key: String, in models: [any TranscriptionModel]) -> (any TranscriptionModel)? {
         if let model = models.first(where: { $0.selectionKey == key }) {

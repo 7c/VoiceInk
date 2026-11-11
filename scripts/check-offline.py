@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit the offline build and test the actual production network guard. No downloads."""
+"""Audit the offline build and test the actual production network guard. Downloads nothing."""
 import json
 from pathlib import Path
 import plistlib
@@ -23,6 +23,15 @@ for obj in project['objects'].values():
     assert obj['isa'] != 'PBXShellScriptBuildPhase', 'Unexpected build script'
 assert not list(ROOT.rglob('Package.resolved'))
 
+ASSET_MANAGER = 'NativeAppleSpeechAssetManager.swift'
+INSTALL_COORDINATOR = 'NativeAppleSpeechAssetInstallCoordinator.swift'
+LANGUAGE_CONTROL = 'NativeAppleLanguageAssetControl.swift'
+INSTALL_PATH_RULES = [
+    (r'assetInstallationRequest|downloadAndInstall', {ASSET_MANAGER}),
+    (r'\b(installAsset|prepareAssetForUse)\b', {ASSET_MANAGER, INSTALL_COORDINATOR}),
+    (r'\bNativeAppleSpeechAssetInstallCoordinator\b', {INSTALL_COORDINATOR, LANGUAGE_CONTROL}),
+]
+
 allowed_modules = {
     'AVFoundation', 'AppIntents', 'AppKit', 'ApplicationServices', 'AudioToolbox', 'Carbon',
     'Charts', 'Cocoa', 'Combine', 'CoreAudio', 'CoreFoundation', 'CoreGraphics', 'Darwin',
@@ -35,7 +44,13 @@ for source in (ROOT / 'VoiceInk').rglob('*.swift'):
     for module in re.findall(r'^\s*import (\w+)', text, re.M):
         assert module in allowed_modules, (source, module)
     assert not re.search(r'\b(URLSession|URLRequest|NWConnection|NWListener|NSUbiquitousKeyValueStore)\b', text), source
-    assert not re.search(r'assetInstallationRequest|downloadAndInstall|cloudKitDatabase:\s*\.private', text), source
+    assert not re.search(r'cloudKitDatabase:\s*\.private', text), source
+    # A language install is requested from macOS, which downloads in its own services while this
+    # process stays network-denied. Each layer of that path may be referenced only by the next,
+    # so the Download button in the language control remains the only way to start one.
+    for pattern, allowed in INSTALL_PATH_RULES:
+        if re.search(pattern, text):
+            assert source.name in allowed, (source, pattern)
     assert not re.search(r'kSecAttrSynchronizable[^\n]*= kCFBooleanTrue', text), source
     if 'NSWorkspace.shared.open(' in text:
         assert source.name == 'OfflineWorkspace.swift', source
@@ -43,7 +58,7 @@ for source in (ROOT / 'VoiceInk').rglob('*.swift'):
 for path in (ROOT / 'VoiceInk').glob('*.entitlements'):
     entitlements = plistlib.loads(path.read_bytes())
     assert not any('network' in key or 'icloud' in key or 'ubiquity' in key for key in entitlements), path
-print('PASS: no packages, third-party imports, cloud stores, download APIs, or network clients')
+print('PASS: no packages, third-party imports, cloud stores, or network clients; language installs go only through macOS')
 
 with tempfile.TemporaryDirectory(prefix='voiceink-offline-check-') as directory:
     directory = Path(directory)

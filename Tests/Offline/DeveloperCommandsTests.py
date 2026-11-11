@@ -287,6 +287,25 @@ class DeveloperCommandsTests(unittest.TestCase):
                         process.kill()
                     process.wait(timeout=2)
 
+    def test_language_download_test_requires_a_well_formed_language(self):
+        for language in ('', 'german', 'de_DE', 'de-DE; rm -rf /', '--help', 'de-DE '):
+            with self.subTest(language=language), patch.object(dev, 'require') as command:
+                with self.assertRaisesRegex(RuntimeError, 'LANGUAGE=de-DE'):
+                    dev.language_download_test(language)
+                command.assert_not_called()
+
+    def test_language_download_test_passes_only_the_requested_language_to_the_probe(self):
+        with patch.object(dev, 'require', return_value='PASS') as command:
+            self.assertEqual(dev.language_download_test('de-DE'), 0)
+        probe_run = command.call_args_list[-1]
+        self.assertEqual(probe_run.args[1:], ('de-DE',))
+        self.assertTrue(str(probe_run.args[0]).endswith('language-download-check'))
+        compiled = [str(argument) for call in command.call_args_list[:-1] for argument in call.args]
+        self.assertTrue(any(argument.endswith('OfflineNetworkGuard.c') for argument in compiled),
+                        'The probe must be linked with the production network guard')
+        self.assertTrue(any(argument.endswith('NativeAppleSpeechAssetManager.swift') for argument in compiled),
+                        'The probe must use the production asset manager')
+
     def test_permission_reset_failure_never_retries_globally(self):
         with patch.object(dev, 'require', side_effect=RuntimeError('permission denied')) as command:
             with self.assertRaisesRegex(RuntimeError, 'permission denied'):

@@ -22,6 +22,7 @@ Run commands from the repository root. Plain `make` prints help and does not bui
 | `make test` | Developer-command tests plus dependency, offline, and binary audits |
 | `make test-tools` | Test help, colors, diagnostics, process matching, and safe cleanup |
 | `make test-speech` | Transcribe a generated local speech fixture; no microphone capture |
+| `make test-language LANGUAGE=de-DE` | Have macOS download one language while the probe process stays network-denied |
 | `make clean` | Remove only `.local-build`; refuse if that app is running or the path is a symlink |
 | `make rebuild` | Clean, then build, sequentially even with parallel make |
 
@@ -47,6 +48,8 @@ Build products, recordings, transcripts, local databases, environment files, sig
 
 Run `make install` to build, verify, and copy the app into `/Applications/VoiceInk.app`. The copy is staged and signature-checked before replacement; failed installation restores the previous offline app. The command refuses to overwrite a different VoiceInk edition, follow an app symlink, or replace the installed app while it is running. Quit that copy before upgrading. It preserves app settings and history and does not enable startup automatically.
 
+The build is ad-hoc signed, so macOS ties its privacy grants to that exact build. After installing a new build, Accessibility is off for it and the global shortcut does not respond until you grant it again: in **System Settings → Privacy & Security → Accessibility**, remove VoiceInk and add `/Applications/VoiceInk.app` again (or run `make reset-permissions` and approve the prompts), then quit and reopen the app. macOS may also ask for Microphone access again.
+
 For a per-user installation, use `make install INSTALL_DIR="$HOME/Applications"`. Pass the same `INSTALL_DIR` to `make open-installed` and `make kill-installed` when using a custom destination. No automatic sudo or privilege escalation is used.
 
 `make kill-installed` sends SIGTERM to the exact installed executable, waits up to five seconds, then sends SIGKILL to any surviving original instances. It succeeds when the app is already stopped, refuses other app bundles and app symlinks, and leaves development copies alone. An active recording may be lost; saved settings and history are retained. To update and reopen, run `make kill-installed && make install && make open-installed` (sequentially, not with `make -j`).
@@ -55,9 +58,19 @@ Open the installed copy and use **Settings → General → Launch at Login** to 
 
 `make reset-permissions` runs `tccutil reset All local.VoiceInk.Offline` for the current user. Quit and reopen VoiceInk afterward, then allow Microphone and Accessibility again as needed. Check Input Monitoring if shortcuts do not respond. This resets privacy grants and denials only; it does not delete transcripts/settings, disable Launch at Login, or reset permissions for unrelated apps. The automated tests mock this action; they never reset real permissions.
 
+## Language downloads
+
+Apple Speech languages that macOS has not installed yet (German, for example) can be downloaded from **Speech Model**, onboarding, or a mode's language row with the **Download** button. The app only asks macOS to install the language through `AssetInventory`; macOS downloads the assets from Apple in its own system services. The app process keeps its network denial the whole time; only that one step needs an internet connection. A download keeps running if you leave the screen, and the status picks it up again when you return.
+
+Nothing is downloaded automatically: dictating in a missing language reports "Download required" instead, and `make test-speech` checks that it leaves the installed languages unchanged. The audit in `make test` keeps the install path narrow: Apple's install API may appear only in `NativeAppleSpeechAssetManager.swift`, that manager's install functions only in `NativeAppleSpeechAssetInstallCoordinator.swift`, and the coordinator only in the language control that owns the Download button.
+
+macOS limits how many languages one app can keep reserved (five on the tested macOS 26 host). When that limit is reached, installing another language releases one of the earlier reservations, and macOS may later remove that language's assets. Download it again if you need it back.
+
+To check the mechanism itself, run `make test-language LANGUAGE=de-DE` with a language that is not installed yet. It links the production asset manager with the production network guard, confirms the probe cannot open even a loopback connection, asks macOS for the language, and passes only if the language ends up installed. This is the one command here that downloads something, so it is not part of `make test`; for an already installed language it reports that nothing was downloaded. Re-run it after macOS upgrades.
+
 ## Native speech smoke test
 
-This uses the production Apple Speech source and an already installed en-US language. It synthesizes a short local fixture using the installed Samantha voice, then checks transcription and missing-language handling. It never requests a model or voice download.
+This uses the production Apple Speech source and an already installed en-US language. It synthesizes a short local fixture using the installed Samantha voice, then checks transcription and that an unsupported language is rejected. If some supported language is not installed, it also checks that the language is reported as downloadable and that dictating in it fails with "Download required" without installing anything. The test itself never requests a model or voice download.
 
 ```sh
 make test-speech

@@ -21,6 +21,11 @@ BINARY = APP / 'Contents/MacOS/VoiceInk'
 BUNDLE_ID = 'local.VoiceInk.Offline'
 INSTALLED_APP = Path('/Applications/VoiceInk.app')
 GUARD = ROOT / 'VoiceInk/Infrastructure/Privacy/OfflineNetworkGuard.c'
+APPLE_SPEECH = ROOT / 'VoiceInk/Infrastructure/Providers/Transcription/AppleSpeech'
+ASSET_MANAGER = APPLE_SPEECH / 'NativeAppleSpeechAssetManager.swift'
+# BCP-47 language-region such as de-DE or yue-CN; nothing else may reach the probe's arguments.
+LANGUAGE_PATTERN = re.compile(r'[a-z]{2,3}-[A-Z]{2}')
+LANGUAGE_DOWNLOAD_TIMEOUT = 1800  # seconds; a language is a few hundred megabytes on a slow link
 COLOR = not os.environ.get('NO_COLOR') and (
     os.environ.get('COLOR') == 'always' or
     os.environ.get('COLOR') != 'never' and sys.stdout.isatty() and os.environ.get('TERM') != 'dumb')
@@ -167,10 +172,15 @@ def preferences():
     return plistlib.loads(result.stdout.encode())
 
 
-def capability_probe(directory):
+def compile_guard(directory):
     object_file = directory / 'guard.o'
-    executable = directory / 'doctor-probe'
     require('xcrun', 'clang', '-c', GUARD, '-o', object_file)
+    return object_file
+
+
+def capability_probe(directory):
+    object_file = compile_guard(directory)
+    executable = directory / 'doctor-probe'
     require('xcrun', 'swiftc', '-parse-as-library', ROOT / 'scripts/DoctorProbe.swift',
             object_file, '-o', executable, timeout=60)
     return json.loads(require(executable, timeout=30))
@@ -183,11 +193,11 @@ def speech_checks(report):
             capabilities = capability_probe(Path(directory))
         locales = capabilities['installedLocales']
         report.item('PASS' if locales else 'WARN', 'Installed Apple Speech languages',
-                    ', '.join(locales) if locales else 'None. This edition cannot transcribe until macOS already has language assets; no downloads attempted.')
+                    ', '.join(locales) if locales else 'None. Download a language in VoiceInk → Speech Model; doctor itself never downloads.')
         prefs = preferences()
         locale = prefs.get('SelectedLanguage', 'en-US')
         report.item('PASS' if locale in locales else 'WARN', 'Selected language',
-                    f'{locale} is installed' if locale in locales else f'{locale} is not installed; select an installed language in Speech Model. Modes can override this selection.')
+                    f'{locale} is installed' if locale in locales else f'{locale} is not installed; download it or select an installed language in Speech Model. Modes can override this selection.')
         report.item('PASS' if capabilities['hasDefaultInput'] else 'WARN', 'Default microphone',
                     'An input device is available (not activated)' if capabilities['hasDefaultInput'] else
                     f"No default audio input found (CoreAudio status {capabilities['audioStatus']}); connect/select a microphone.")
@@ -251,7 +261,7 @@ def speech_test():
         directory = Path(directory)
         capabilities = capability_probe(directory)
         if 'en-US' not in capabilities['installedLocales']:
-            raise RuntimeError('en-US speech assets are not installed. Select another installed language for normal use; this test never downloads assets.')
+            raise RuntimeError('en-US speech assets are not installed. Download English (United States) in VoiceInk → Speech Model first; this test never downloads assets.')
         # Verify the chosen voice is installed before invoking synthesis.
         voices = require('sandbox-exec', '-p', '(version 1)(allow default)(deny network*)', 'say', '-v', '?')
         if not re.search(r'^Samantha\s+en_US\b', voices, re.M):
@@ -262,10 +272,24 @@ def speech_test():
         executable = directory / 'speech-test'
         require('xcrun', 'swiftc', '-parse-as-library', '-D', 'ENABLE_NATIVE_SPEECH_ANALYZER',
                 ROOT / 'Tests/Offline/NativeSpeechSmoke.swift',
-                ROOT / 'VoiceInk/Infrastructure/Providers/Transcription/AppleSpeech/NativeAppleSpeechAssetManager.swift',
-                ROOT / 'VoiceInk/Infrastructure/Providers/Transcription/AppleSpeech/NativeAppleTranscriptionService.swift',
+                ASSET_MANAGER, APPLE_SPEECH / 'NativeAppleTranscriptionService.swift',
                 directory / 'guard.o', '-o', executable, timeout=60)
         print(require(executable, fixture, timeout=60))
+    return 0
+
+
+def language_download_test(language):
+    # Validate before compiling or running anything; the value reaches a subprocess argument.
+    if not LANGUAGE_PATTERN.fullmatch(language or ''):
+        raise RuntimeError('Name one Apple Speech language, for example: make test-language LANGUAGE=de-DE')
+    section('Language download check · macOS downloads, this process stays network-denied')
+    with tempfile.TemporaryDirectory(prefix='voiceink-language-test-') as directory:
+        directory = Path(directory)
+        executable = directory / 'language-download-check'
+        require('xcrun', 'swiftc', '-parse-as-library', '-D', 'ENABLE_NATIVE_SPEECH_ANALYZER',
+                ROOT / 'Tests/Offline/LanguageDownloadCheck.swift', ASSET_MANAGER,
+                compile_guard(directory), '-o', executable, timeout=60)
+        print(require(executable, language, timeout=LANGUAGE_DOWNLOAD_TIMEOUT))
     return 0
 
 
@@ -390,8 +414,9 @@ def reset_permissions():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['doctor', 'check', 'built', 'open', 'status', 'clean', 'test-speech', 'install', 'open-installed', 'kill-installed', 'reset-permissions'])
+    parser.add_argument('action', choices=['doctor', 'check', 'built', 'open', 'status', 'clean', 'test-speech', 'test-language', 'install', 'open-installed', 'kill-installed', 'reset-permissions'])
     parser.add_argument('--install-dir', default='/Applications')
+    parser.add_argument('--language', default='')
     args = parser.parse_args()
     action = args.action
     if action == 'install':
@@ -417,6 +442,8 @@ def main():
         return report.summary()
     if action == 'test-speech':
         return speech_test()
+    if action == 'test-language':
+        return language_download_test(args.language)
     if action == 'clean':
         if BUILD.is_symlink() or BUILD.resolve() != ROOT / '.local-build':
             raise RuntimeError('Refusing to clean a symlink or a build path outside this repository.')

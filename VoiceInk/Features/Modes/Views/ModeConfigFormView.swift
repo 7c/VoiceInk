@@ -300,16 +300,6 @@ struct ModeConfigFormView: View {
 
                 Spacer(minLength: 12)
 
-                if modelInfo.provider == .nativeApple {
-                    NativeAppleLanguageAssetControl(
-                        localeIdentifier: effectiveLanguage(for: modelInfo),
-                        isVisible: true,
-                        startsDownloadAutomatically: false
-                    )
-                    .layoutPriority(1)
-
-                }
-
                 Picker("", selection: languageBinding) {
                     ForEach(
                         availableLanguages(for: modelInfo).sorted(by: {
@@ -325,6 +315,10 @@ struct ModeConfigFormView: View {
             }
             .onAppear {
                 draft.selectedLanguage = effectiveLanguage(for: modelInfo)
+            }
+
+            if modelInfo.provider == .nativeApple {
+                NativeAppleLanguageAssetControl(localeIdentifier: effectiveLanguage(for: modelInfo))
             }
         } else if let selectedModel = effectiveModelName,
             let modelInfo = warmupSnapshot.transcriptionModel(named: selectedModel)
